@@ -140,3 +140,7 @@ def test_several_discounts_on_one_item():
         "total": {"total_price": "53,020"},
     }
     assert check(receipt_from_cord(parsed)) == []
+
+def test_blank_item_name_is_flagged():
+    receipt = make([("", 2, 60000)], subtotal=60000, total=60000)
+    assert "empty_item_name" in check(receipt)

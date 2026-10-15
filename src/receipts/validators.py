@@ -51,6 +51,8 @@ def check(receipt):
     failures = []
     if not receipt.items:
         failures.append("no_items")
+    if any(not item.name.strip() for item in receipt.items):
+        failures.append("empty_item_name")
     if receipt.total is None:
         failures.append("missing_total")
 
