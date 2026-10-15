@@ -1,3 +1,4 @@
+from receipts.parsing import receipt_from_cord
 from receipts.schema import LineItem, Receipt
 from receipts.validators import check, parse_receipt
 
@@ -49,3 +50,51 @@ def test_parse_receipt_accepts_fenced_json():
 def test_parse_receipt_rejects_bad_output():
     assert parse_receipt("sorry, I cannot read this") is None
     assert parse_receipt('{"items": "none"}') is None
+
+
+def test_service_charge_and_discount_are_part_of_the_total():
+    parsed = {
+        "menu": [
+            {"nm": "Bintang Bremer", "cnt": "1", "price": "59,000"},
+            {"nm": "Chicken H-H", "cnt": "1", "price": "190,000"},
+            {"nm": "Ades", "cnt": "1", "price": "10,000"},
+        ],
+        "sub_total": {
+            "subtotal_price": "259,000",
+            "discount_price": "19,000",
+            "service_price": "9,600",
+            "tax_price": "52,416",
+        },
+        "total": {"total_price": "302,016"},
+    }
+    assert check(receipt_from_cord(parsed)) == []
+
+
+def test_item_level_discounts_reduce_the_items_sum():
+    parsed = {
+        "menu": [
+            {"nm": "BUBUR UNGU", "discountprice": "-7,800", "price": "26,000"},
+            {"nm": "SENDOK BEBEK", "price": "0"},
+            {"nm": "WAJIK", "discountprice": "-2,100", "price": "7,000"},
+            {"nm": "CENTIK MANIS", "discountprice": "-1,650", "price": "5,500"},
+            {"nm": "PLASTIK SEDANG", "price": "0"},
+        ],
+        "sub_total": {"subtotal_price": "26,950"},
+        "total": {"total_price": "26,950", "cashprice": "26,950"},
+    }
+    assert check(receipt_from_cord(parsed)) == []
+
+
+def test_tax_inclusive_receipt_passes():
+    parsed = {
+        "menu": {"nm": "MINI CHOCO", "price": "13,500"},
+        "sub_total": {"subtotal_price": "12,273", "tax_price": "1,227"},
+        "total": {"total_price": "13,500", "cashprice": "14,000"},
+    }
+    assert check(receipt_from_cord(parsed)) == []
+
+
+def test_small_rounding_gap_on_a_large_total_is_tolerated():
+    receipt = make([("a", 1, 1346000)], subtotal=1346000, tax=144695, total=1591600)
+    receipt.service = 100950
+    assert check(receipt) == []

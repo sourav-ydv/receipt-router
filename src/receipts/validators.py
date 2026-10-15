@@ -4,7 +4,8 @@ from pydantic import ValidationError
 
 from .schema import Receipt
 
-TOLERANCE = 1.0
+RELATIVE_TOLERANCE = 0.0005
+MIN_TOLERANCE = 1.0
 
 
 def extract_json(text):
@@ -19,12 +20,31 @@ def parse_receipt(raw):
         return None
 
 
-def expected_items_sum(receipt):
+def tolerance(receipt):
+    base = receipt.total or receipt.subtotal or 0.0
+    return max(MIN_TOLERANCE, base * RELATIVE_TOLERANCE)
+
+
+def items_net(receipt):
+    return sum(i.price - i.discount for i in receipt.items)
+
+
+def item_targets(receipt):
     if receipt.subtotal is not None:
-        return receipt.subtotal
-    if receipt.tax is None:
-        return receipt.total
-    return None
+        targets = [receipt.subtotal, receipt.total]
+    elif receipt.tax is None:
+        targets = [receipt.total]
+    else:
+        targets = []
+    return [t for t in targets if t is not None]
+
+
+def total_matches(receipt):
+    if receipt.subtotal is None or receipt.total is None:
+        return True
+    base = receipt.subtotal - (receipt.discount or 0.0) + (receipt.service or 0.0)
+    options = (base + (receipt.tax or 0.0), base)
+    return any(abs(o - receipt.total) <= tolerance(receipt) for o in options)
 
 
 def check(receipt):
@@ -34,13 +54,13 @@ def check(receipt):
     if receipt.total is None:
         failures.append("missing_total")
 
-    target = expected_items_sum(receipt)
-    if receipt.items and target is not None:
-        if abs(sum(i.price for i in receipt.items) - target) > TOLERANCE:
+    targets = item_targets(receipt)
+    if receipt.items and targets:
+        net = items_net(receipt)
+        if not any(abs(net - t) <= tolerance(receipt) for t in targets):
             failures.append("items_vs_subtotal")
 
-    if None not in (receipt.subtotal, receipt.tax, receipt.total):
-        if abs(receipt.subtotal + receipt.tax - receipt.total) > TOLERANCE:
-            failures.append("subtotal_tax_total")
+    if not total_matches(receipt):
+        failures.append("subtotal_tax_total")
 
     return failures
