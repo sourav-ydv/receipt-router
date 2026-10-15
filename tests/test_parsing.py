@@ -49,3 +49,31 @@ def test_text_from_cord_joins_words_per_line():
         {"words": [{"text": "25,000"}]},
     ]
     assert text_from_cord(valid) == "NASI GORENG\n25,000"
+
+
+def test_to_number_keeps_negative_sign():
+    assert to_number("-7,800") == -7800.0
+    assert to_number("-45") == -45.0
+
+
+def test_item_discount_is_stored_as_positive_amount():
+    parsed = {"menu": {"nm": "Wajik", "price": "7,000", "discountprice": "-2,100"}}
+    item = receipt_from_cord(parsed).items[0]
+    assert item.price == 7000.0
+    assert item.discount == 2100.0
+
+
+def test_service_and_receipt_discount_are_read():
+    parsed = {
+        "menu": {"nm": "Chicken", "cnt": "1", "price": "190,000"},
+        "sub_total": {
+            "subtotal_price": "190,000",
+            "discount_price": "19,000",
+            "service_price": "9,600",
+            "tax_price": "52,416",
+        },
+        "total": {"total_price": "233,016"},
+    }
+    receipt = receipt_from_cord(parsed)
+    assert receipt.discount == 19000.0
+    assert receipt.service == 9600.0

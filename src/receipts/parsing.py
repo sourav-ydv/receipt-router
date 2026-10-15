@@ -6,10 +6,16 @@ from .schema import LineItem, Receipt
 def to_number(value):
     if value is None:
         return None
-    digits = re.sub(r"\D", "", str(value))
+    text = str(value)
+    digits = re.sub(r"\D", "", text)
     if not digits:
         return None
-    return float(digits)
+    sign = -1.0 if re.match(r"\s*-", text) else 1.0
+    return sign * float(digits)
+
+
+def magnitude(value):
+    return abs(value) if value is not None else None
 
 
 def as_list(value):
@@ -38,6 +44,7 @@ def parse_items(menu):
                 name=str(name).strip(),
                 quantity=int(quantity) if quantity else 1,
                 price=price,
+                discount=magnitude(to_number(row.get("discountprice"))) or 0.0,
             )
         )
     return items
@@ -49,6 +56,8 @@ def receipt_from_cord(gt_parse):
     return Receipt(
         items=parse_items(gt_parse.get("menu")),
         subtotal=to_number(sub.get("subtotal_price")),
+        discount=magnitude(to_number(sub.get("discount_price"))),
+        service=to_number(sub.get("service_price")),
         tax=to_number(sub.get("tax_price")),
         total=to_number(total.get("total_price")),
     )
