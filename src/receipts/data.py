@@ -25,3 +25,8 @@ def write_jsonl(rows, path):
     with path.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def read_jsonl(path):
+    with path.open(encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
