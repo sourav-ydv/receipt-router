@@ -98,3 +98,45 @@ def test_small_rounding_gap_on_a_large_total_is_tolerated():
     receipt = make([("a", 1, 1346000)], subtotal=1346000, tax=144695, total=1591600)
     receipt.service = 100950
     assert check(receipt) == []
+
+
+def test_duplicate_subtotal_entries_do_not_break_the_check():
+    parsed = {
+        "menu": [
+            {"nm": "BASO TAHU", "unitprice": "43.636", "cnt": "1", "price": "43.636"},
+            {"nm": "NASI PUTIH", "unitprice": "6.000", "cnt": "1", "price": "6.000"},
+        ],
+        "sub_total": {"subtotal_price": ["49.636", "49.636"], "tax_price": "4.964"},
+        "total": {"total_price": "54.600", "cashprice": "60.100"},
+    }
+    assert check(receipt_from_cord(parsed)) == []
+
+
+def test_weighted_items_with_fractional_counts():
+    parsed = {
+        "menu": [
+            {"nm": "IKAN GABUS FRESH", "unitprice": "98,500", "cnt": "0.264X", "price": "26,004"},
+            {"nm": "IKAN BUMBU KUNING", "unitprice": "72,500", "cnt": "0.308X", "price": "22,330"},
+            {"nm": "OCTOPUS SATAY", "unitprice": "7,500", "cnt": "1X", "price": "7,500"},
+        ],
+        "sub_total": {"subtotal_price": "55,834"},
+        "total": {"total_price": ["55,834", "55,800"], "cashprice": "60,000"},
+    }
+    assert check(receipt_from_cord(parsed)) == []
+
+
+def test_several_discounts_on_one_item():
+    parsed = {
+        "menu": [
+            {"nm": "A", "cnt": "1X", "discountprice": "800-", "price": "8,000"},
+            {"nm": "B", "cnt": "1X", "discountprice": ["1,400 -", "1,260-"], "price": "14,000"},
+            {"nm": "C", "cnt": "1X", "discountprice": "1,220-", "price": "12,200"},
+            {"nm": "D", "cnt": "1X", "discountprice": "600-", "price": "6,000"},
+            {"nm": "E", "cnt": "1X", "discountprice": "640-", "price": "6,400"},
+            {"nm": "F", "cnt": "1X", "discountprice": ["1,400 -", "790-"], "price": "9,300"},
+            {"nm": "G", "cnt": "0,292X", "discountprice": "581-", "price": "5,811"},
+        ],
+        "sub_total": {"subtotal_price": "53,020"},
+        "total": {"total_price": "53,020"},
+    }
+    assert check(receipt_from_cord(parsed)) == []

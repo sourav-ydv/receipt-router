@@ -1,4 +1,10 @@
-from receipts.parsing import receipt_from_cord, text_from_cord, to_number
+from receipts.parsing import (
+    is_usable,
+    parse_quantity,
+    receipt_from_cord,
+    text_from_cord,
+    to_number,
+)
 
 
 def test_to_number_strips_separators():
@@ -77,3 +83,53 @@ def test_service_and_receipt_discount_are_read():
     receipt = receipt_from_cord(parsed)
     assert receipt.discount == 19000.0
     assert receipt.service == 9600.0
+
+
+def test_list_valued_amounts_use_the_first_entry():
+    parsed = {
+        "menu": {"nm": "KFC Winger HC", "cnt": "1", "price": "20,000"},
+        "sub_total": {"subtotal_price": ["20,000", "20,000"], "tax_price": "2,000"},
+        "total": {"total_price": ["55,834", "55,800"]},
+    }
+    receipt = receipt_from_cord(parsed)
+    assert receipt.subtotal == 20000.0
+    assert receipt.total == 55834.0
+
+
+def test_list_valued_item_discounts_are_summed():
+    parsed = {
+        "menu": {
+            "nm": "BENECOL LYCHEE 2S",
+            "price": "14,000",
+            "discountprice": ["1,400 -", "1,260-"],
+        }
+    }
+    assert receipt_from_cord(parsed).items[0].discount == 2660.0
+
+
+def test_quantity_formats():
+    assert parse_quantity("1 x") == 1
+    assert parse_quantity("3") == 3
+    assert parse_quantity("2X") == 2
+    assert parse_quantity("0.264X") == 1
+    assert parse_quantity("0,292X") == 1
+    assert parse_quantity(["TRIPPLE CHEESE", "1"]) == 1
+    assert parse_quantity(None) == 1
+
+
+def test_receipts_with_nameless_items_are_not_usable():
+    nameless = {
+        "menu": [{"unitprice": "12.000", "cnt": "3", "price": "36.000"}],
+        "total": {"total_price": "36.000"},
+    }
+    no_total = {
+        "menu": {"nm": "Cuka", "price": "289000"},
+        "total": {"cashprice": "300000"},
+    }
+    fine = {
+        "menu": {"nm": "Cuka", "price": "289000"},
+        "total": {"total_price": "289000"},
+    }
+    assert is_usable(nameless) is False
+    assert is_usable(no_total) is False
+    assert is_usable(fine) is True
