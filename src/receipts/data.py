@@ -3,7 +3,7 @@ import json
 from datasets import load_dataset
 
 from .config import DATASET_NAME
-from .parsing import receipt_from_cord, text_from_cord
+from .parsing import is_usable, receipt_from_cord, text_from_cord
 
 
 def load_split(split):
@@ -13,10 +13,11 @@ def load_split(split):
 
 def convert(row):
     truth = json.loads(row["ground_truth"])
-    receipt = receipt_from_cord(truth["gt_parse"])
+    parsed = truth["gt_parse"]
     return {
         "text": text_from_cord(truth["valid_line"]),
-        "label": receipt.model_dump(),
+        "label": receipt_from_cord(parsed).model_dump(),
+        "usable": is_usable(parsed),
     }
 
 
