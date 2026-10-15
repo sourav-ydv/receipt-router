@@ -60,6 +60,7 @@ def main():
     gold_rows = read_jsonl(PROCESSED_DIR / f"{split}.jsonl")
     teacher_rows = read_jsonl(TEACHER_DIR / f"{split}.jsonl")
     fields = {name: Counter() for name in FIELDS}
+    field_ids = {}
     items = Counter()
     examples = {"name_differs": [], "numbers_differ": [], "missing": []}
     for record in teacher_rows:
@@ -68,14 +69,20 @@ def main():
         gold = Receipt(**gold_rows[record["id"]]["label"])
         pred = Receipt(**record["label"])
         for name in FIELDS:
-            fields[name][field_outcome(getattr(pred, name), getattr(gold, name))] += 1
+            outcome = field_outcome(getattr(pred, name), getattr(gold, name))
+            fields[name][outcome] += 1
+            field_ids.setdefault((name, outcome), []).append(record["id"])
         counts, found = compare_items(pred, gold)
         items.update(counts)
         for kind, rows in found.items():
-            examples[kind].extend(rows)
+            examples[kind].extend((record["id"], row) for row in rows)
     for name, counts in fields.items():
         print(name, dict(counts))
     print("items", dict(items))
+    print()
+    for (name, outcome), ids in field_ids.items():
+        if outcome != "match":
+            print(f"{name} {outcome}: {ids[:6]}")
     for kind, rows in examples.items():
         print(f"\n{kind} (first 6 of {len(rows)})")
         for row in rows[:6]:
