@@ -13,6 +13,7 @@ def main():
     print("gold:   ", gold["label"])
     print("teacher:", teacher["label"])
     print("problems:", teacher["problems"])
+    print("raw:", teacher["raw"])
 
 
 if __name__ == "__main__":
