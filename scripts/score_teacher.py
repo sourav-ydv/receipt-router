@@ -4,6 +4,7 @@ from receipts.config import PROCESSED_DIR, TEACHER_DIR
 from receipts.data import read_jsonl
 from receipts.schema import Receipt
 from receipts.scoring import score, summarize
+from receipts.validators import check
 
 
 def show(name, scores):
@@ -23,7 +24,8 @@ def main():
         pred = Receipt(**record["label"]) if record["label"] else Receipt()
         result = score(pred, truth)
         everything.append(result)
-        if not record["problems"]:
+        problems = check(pred) if record["label"] else ["unparseable"]
+        if not problems:
             accepted.append(result)
     show("all teacher answers", everything)
     show("passed validators", accepted)
