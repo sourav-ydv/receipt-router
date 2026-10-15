@@ -15,18 +15,26 @@ Fields:
 
 Rules:
 - Numbers are plain numbers with no currency symbol and no thousands separator. On these Indonesian receipts 12.500 and 12,500 both mean 12500.
-- price is the amount printed on the item's line, before that item's own discount.
-- discount on an item is a positive number, or 0 when the item has none.
-- quantity is a whole number. Use 1 when it is not printed or is fractional.
-- Use null for a receipt-level field that is not printed. Never calculate a value that is not on the receipt.
-- Keep item names exactly as printed."""
+- Copy each item name exactly as printed, including trailing words or numbers. Lines such as "ITEMS 2" or "QTY 3" only count items and are not item names.
+- price is the amount printed for the item's line, before that item's own discount.
+- quantity is a whole number. It may be printed before the item name, after it, or as "2 x 25.000". A line holding only a small whole number right before an item name is that item's quantity. Use 1 only when no quantity is printed.
+- tax is the tax line: PB1, PB-1, PPN, PAJAK, TAX or VAT. Never put it in discount.
+- service is a service charge line such as SERVICE or SVC.
+- discount is only a reduction of the bill (DISC, DISKON, POTONGAN, or an amount shown with a minus sign). On an item use a positive number, or 0 when the item has none.
+- Use null for a receipt-level field that is not printed. Never calculate a value that is not on the receipt."""
 
 EXAMPLE_TEXT = """WARUNG BU SARI
-Nasi Ayam 2 x 25.000 50.000
-Es Teh 1 x 5.000 5.000
-SUBTOTAL 55.000
-PB1 10% 5.500
-TOTAL 60.500"""
+2
+Nasi Ayam
+50.000
+1
+Es Teh
+5.000
+ITEMS 2
+SUBTTL 55.000
+PB-1 10% 5.500
+TOTAL 60.500
+CASH 100.000"""
 
 EXAMPLE_ANSWER = json.dumps(
     {
