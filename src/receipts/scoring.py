@@ -2,7 +2,7 @@ from collections import Counter
 
 
 def item_key(item):
-    return (item.name.strip().lower(), item.quantity, item.price)
+    return (item.name.strip().lower(), item.quantity, item.price, item.discount)
 
 
 def items_f1(pred, gold):
@@ -22,6 +22,8 @@ def score(pred, gold):
     return {
         "total": pred.total == gold.total,
         "subtotal": pred.subtotal == gold.subtotal,
+        "discount": pred.discount == gold.discount,
+        "service": pred.service == gold.service,
         "tax": pred.tax == gold.tax,
         "items_f1": items_f1(pred, gold),
         "exact": pred == gold,
