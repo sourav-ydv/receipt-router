@@ -6,7 +6,7 @@ from .schema import LineItem, Receipt
 def to_number(value):
     if value is None:
         return None
-    text = str(value)
+    text = re.sub(r"(?<=\d{3})[.,]\d{1,2}(?!\d)\s*$", "", str(value))
     digits = re.sub(r"\D", "", text)
     if not digits:
         return None

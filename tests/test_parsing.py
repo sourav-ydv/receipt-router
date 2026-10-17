@@ -133,3 +133,16 @@ def test_receipts_with_nameless_items_are_not_usable():
     assert is_usable(nameless) is False
     assert is_usable(no_total) is False
     assert is_usable(fine) is True
+
+def test_trailing_decimals_are_dropped_not_multiplied():
+    assert to_number("47.619,00") == 47619.0
+    assert to_number("30.303,00") == 30303.0
+    assert to_number("100.00") == 100.0
+    assert to_number("5,000.00") == 5000.0
+
+
+def test_thousands_separators_are_untouched_by_the_decimal_rule():
+    assert to_number("54.600") == 54600.0
+    assert to_number("12,500") == 12500.0
+    assert to_number("1,346,000") == 1346000.0
+    assert to_number("40,000.") == 40000.0
