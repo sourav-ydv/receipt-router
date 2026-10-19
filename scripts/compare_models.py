@@ -39,17 +39,22 @@ def main():
     teacher = {r["id"]: r for r in read_jsonl(TEACHER_DIR / "test.jsonl")}
     ids = [i for i in usable if i in teacher]
 
+    names = [
+        n
+        for n in ("filtered", "all", "q8_0", "q5_k_m", "q4_k_m")
+        if (DATA_DIR / "student" / f"predictions_{n}.jsonl").exists()
+    ]
     students = {}
-    for name in ("filtered", "all"):
+    for name in names:
         rows = read_jsonl(DATA_DIR / "student" / f"predictions_{name}.jsonl")
         students[name] = dict(zip(usable, rows))
 
     gold = {i: Receipt(**test[i]["label"]) for i in ids}
     systems = {
         "teacher": [judge(Receipt(**teacher[i]["label"]) if teacher[i]["label"] else None, gold[i]) for i in ids],
-        "student filtered": [judge(parse_receipt(students["filtered"][i]["raw"]), gold[i]) for i in ids],
-        "student all": [judge(parse_receipt(students["all"][i]["raw"]), gold[i]) for i in ids],
     }
+    for name in names:
+        systems[f"student {name}"] = [judge(parse_receipt(students[name][i]["raw"]), gold[i]) for i in ids]
 
     print(f"{len(ids)} test receipts\n")
     for name, results in systems.items():
@@ -58,26 +63,29 @@ def main():
     print()
     difference("filtered - teacher", systems["student filtered"], systems["teacher"])
     difference("filtered - all", systems["student filtered"], systems["student all"])
-    difference("all - teacher", systems["student all"], systems["teacher"])
+    for name in names:
+        if name not in ("filtered", "all"):
+            difference(f"{name} - filtered", systems[f"student {name}"], systems["student filtered"])
 
-    routed = []
-    escalated = 0
-    api_tokens = 0
     total_tokens = sum(teacher[i]["tokens"] for i in ids)
-    for k, i in enumerate(ids):
-        student_result, problems = systems["student filtered"][k]
-        if problems:
-            routed.append(systems["teacher"][k])
-            escalated += 1
-            api_tokens += teacher[i]["tokens"]
-        else:
-            routed.append((student_result, problems))
-
-    print()
-    summary("router", routed)
-    difference("router - teacher", routed, systems["teacher"])
-    print(f"\nescalated to the API: {escalated} of {len(ids)} receipts")
-    print(f"API tokens: {api_tokens} of {total_tokens} ({api_tokens / total_tokens:.0%})")
+    print("\nrouter: student first, teacher when the validators reject the student")
+    for name in names:
+        if name == "all":
+            continue
+        routed = []
+        api_tokens = 0
+        escalated = 0
+        for k, i in enumerate(ids):
+            student_result, problems = systems[f"student {name}"][k]
+            if problems:
+                routed.append(systems["teacher"][k])
+                api_tokens += teacher[i]["tokens"]
+                escalated += 1
+            else:
+                routed.append((student_result, problems))
+        summary(f"router {name}", routed)
+        print(f"{'':18} escalated {escalated} of {len(ids)}, API tokens {api_tokens / total_tokens:.0%}")
+        difference(f"router {name} - teacher", routed, systems["teacher"])
 
 
 if __name__ == "__main__":
