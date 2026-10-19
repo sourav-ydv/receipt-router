@@ -1,0 +1,8 @@
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+llama-cpp-python
+huggingface-hub
+groq
+pydantic
+python-dotenv
+fastapi
+receipts @ git+https://github.com/sourav-ydv/receipt-router.git
