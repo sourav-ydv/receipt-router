@@ -8,3 +8,5 @@ checkpoints/
 models/
 *.gguf
 .ipynb_checkpoints/
+kaggle_upload/
+external/
