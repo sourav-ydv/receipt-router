@@ -1,0 +1,17 @@
+﻿CORD test, the training domain (94 receipts)
+  total correct        98.9%
+  total off by x100    0.0%
+  total otherwise wrong or missing  1.1%
+  rejected by validators  19.1%
+  accepted but wrong total  0 of 76 accepted
+
+SROIE, a different kind of receipt (150 receipts)
+  total correct        12.7%
+  total off by x100    43.3%
+  total otherwise wrong or missing  44.0%
+  rejected by validators  56.7%
+  accepted but wrong total  59 of 65 accepted
+
+monitors, baseline = first half of CORD, window 20
+  validator rejection rate: false alarm on CORD no, caught after 23 SROIE receipts
+  share of lines with two-digit decimals: false alarm on CORD no, caught after 20 SROIE receipts

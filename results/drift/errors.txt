@@ -1,0 +1,22 @@
+﻿what the student's total looks like next to the printed one
+  x100         65
+  x1000        38
+  other        23
+  right        19
+  unparseable  5
+
+some of the 'other' cases: id, printed total, student total, validator problems
+   ('484', 9.3, 4070.0, ['subtotal_tax_total'])
+   ('507', 6.0, 60000000000.0, [])
+   ('473', 3.0, 1700.0, [])
+   ('493', 16.5, 3350.0, [])
+   ('210', 7838.8, 7395.09, ['subtotal_tax_total'])
+   ('294', 44.9, 4528.0, ['items_vs_subtotal'])
+   ('314', 20.0, 2222.0, [])
+   ('457', 23.0, 2700.0, ['items_vs_subtotal', 'subtotal_tax_total'])
+   ('479', 5.8, 600.0, [])
+   ('289', 50.0, 10000.0, ['items_vs_subtotal'])
+   ('492', 10.0, 10943.0, [])
+   ('194', 88.95, 88953.0, ['items_vs_subtotal'])
+
+seconds per receipt on this machine: median 14.9, p95 34.4, max 99.2
