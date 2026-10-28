@@ -154,3 +154,35 @@ Neither raised a false alarm on the second half of the CORD receipts. So the rej
 On my laptop SROIE receipts were slower than CORD: median 14.9 seconds, 95th percentile 34.4, maximum 99.2. They are longer, so the model writes more.
 
 Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in layout and line order as well as in number format, so I cannot blame everything on decimals.
+
+## Limits
+
+- The test set is small. 94 receipts means a few points of noise, and every comparison above says so in its interval.
+- The input is clean annotation text, not OCR output. I did not measure the gap.
+- I wrote the second teacher prompt after reading test-split errors. I checked it on validation, but the test numbers for the big model are a little optimistic.
+- The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
+- The drift test is one dataset, one student, 150 receipts, and scores only the total.
+- Free tiers set the shape of the project: the big-model labels came from Groq's free quota, training from Kaggle's weekly GPU hours, and there is no live demo.
+
+## What I would do next
+
+- Add a plausibility check for amounts. A 60-billion total should never pass.
+- Make number handling depend on the receipt's currency and locale, then retrain with escalated receipts from the new domain. That would test the feedback loop where it matters most.
+- Put the drift monitor into the service, so an alarm sends everything to the big model while it is on.
+- Run a real OCR engine on the receipt photos and measure what it costs in accuracy.
+- Get more test receipts so the intervals shrink.
+
+## Running it
+
+```
+pip install -e ".[dev,data,serve]"
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+pytest
+python scripts/prepare_data.py
+```
+
+The big-model labeling needs a free Groq key in `.env` (see `.env.example`). Training and quantizing run in the Kaggle notebooks in `notebooks/`. The quantized model is on Hugging Face at `sourav-ydv25/receipt-student-gguf`.
+
+## Credits
+
+Data: CORD-v2 and SROIE (used for evaluation only, not redistributed here). Models: Qwen2.5-1.5B-Instruct and gpt-oss-120b. Tooling: Unsloth, llama.cpp, Hugging Face, Kaggle, Groq.
