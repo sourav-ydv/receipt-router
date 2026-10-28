@@ -124,3 +124,33 @@ Escalated minus random is -0.8 points in the last round (interval -3.4 to +1.8) 
 Two side findings. Both arms gain about 6 points from roughly 116 to 195 training receipts, so more data helps whichever way it is chosen. And only about half of the escalated receipts get a big-model label that passes the checks (44% in the first run, against 77% for training receipts in general), because receipts the small model struggles with are hard for the big model too.
 
 My conclusion: the loop gives you training data as a free by-product of routing, and the student improves with more of it. At this scale, choosing the escalated receipts did not beat choosing at random.
+
+## What happens on a different kind of receipt
+
+I ran the Q5_K_M student on 150 receipts from SROIE, Malaysian receipts where prices look like `9.00`. The student only ever saw Indonesian ones, where a dot is a thousands separator (`25.000`). SROIE gives only the total, so only the total is scored.
+
+| | CORD test (training domain) | SROIE (new domain) |
+|---|---|---|
+| Receipts | 94 | 150 |
+| Total correct | 98.9% | 12.7% |
+| Total off by a factor of 100 | 0% | 43.3% |
+| Wrong or missing in another way | 1.1% | 44.0% |
+| Rejected by the checks | 19.1% | 56.7% |
+| Passed the checks but total wrong | 0 of 76 | 59 of 65 |
+
+The last row is the important one. On the new receipts the checks accepted 65 answers, and 59 of them had the wrong total. A total that is consistently 100 times too big still adds up, so arithmetic cannot see it. The router would not escalate those answers, so on this kind of receipt it would fail without any warning. One accepted answer had a total of 60 billion.
+
+Looking at the totals more closely (see `results/drift/errors.txt`): 65 were off by exactly 100, 38 by exactly 1000, 23 in some other way (many of those look like a scaled total from a neighbouring line), 19 were right and 5 could not be parsed. The student reads `9.00` as 900, which is what it learned from the rupiah receipts.
+
+### Noticing it without labels
+
+Two signals that need no gold labels, each compared with the first half of the CORD test receipts over a rolling window of 20:
+
+- the share of receipts the checks reject: 19% on CORD, 57% on SROIE. It fired after 23 SROIE receipts.
+- the share of lines with two-digit decimals, an input feature: it fired after 20 SROIE receipts, which is the earliest a window of 20 allows.
+
+Neither raised a false alarm on the second half of the CORD receipts. So the rejection rate is a poor safety net on a new domain but a good alarm.
+
+On my laptop SROIE receipts were slower than CORD: median 14.9 seconds, 95th percentile 34.4, maximum 99.2. They are longer, so the model writes more.
+
+Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in layout and line order as well as in number format, so I cannot blame everything on decimals.
