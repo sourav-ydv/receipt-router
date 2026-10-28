@@ -100,3 +100,27 @@ Speeds are from Kaggle's 4 CPU threads. Q4 lost 9.6 points against the unquantiz
 I simulated the router on the same 94 receipts using the real big-model answers. With the Q5_K_M student it reaches 64.9% exact, sends 18 of 94 receipts to the big model, and uses 22% of the big model's tokens compared with sending everything. Against the big model alone that is +3.2 points (interval -4.3 to +10.6).
 
 The checks only test arithmetic. An answer with a wrong item name or quantity but consistent totals passes. Among the answers the Q5_K_M student passed, 76% were exact, not 100%.
+
+## Does sending hard receipts back make the student better?
+
+The idea: whenever the router escalates a receipt, the big model's answer (if it passes the checks) becomes a new training example. Over time the student should get better at exactly the receipts it found hard.
+
+To test it I started from about 115 random training receipts and trained a student. The remaining receipts arrived in 4 batches of about 155. Each round, the current student answered a batch, the receipts that failed the checks counted as escalated, their checked big-model labels were added, and I retrained from scratch and measured. The control added the same number of random receipts from the same batch instead.
+
+Exact match on 190 receipts the student never trains on (the test and validation splits), averaged over two seeds:
+
+| Round | Escalated receipts added | Random receipts added |
+|---|---|---|
+| 0 (about 116 training receipts) | 50.8% | 50.8% |
+| 1 | 53.4% | 54.7% |
+| 2 | 50.0% | 53.4% |
+| 3 | 56.8% | 56.8% |
+| 4 (about 195 training receipts) | 57.1% | 57.9% |
+
+![exact match against training receipts](docs/feedback_curve.png)
+
+Escalated minus random is -0.8 points in the last round (interval -3.4 to +1.8) and -1.4 across rounds 2 to 4 (interval -3.0 to +0.2). The interval leaves out the variation between training runs, and the two seeds disagree in sign (+1.1 and -2.6), so the real uncertainty is wider than it looks. A first run with a third seed, scored on 94 test receipts only, had shown +4.3 points for escalation. That did not hold up.
+
+Two side findings. Both arms gain about 6 points from roughly 116 to 195 training receipts, so more data helps whichever way it is chosen. And only about half of the escalated receipts get a big-model label that passes the checks (44% in the first run, against 77% for training receipts in general), because receipts the small model struggles with are hard for the big model too.
+
+My conclusion: the loop gives you training data as a free by-product of routing, and the student improves with more of it. At this scale, choosing the escalated receipts did not beat choosing at random.
