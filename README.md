@@ -70,3 +70,33 @@ There is no live demo. On Hugging Face's free tier, Docker and CPU Spaces are pa
 - `scripts/` data preparation, labeling, scoring, comparison and report scripts
 - `notebooks/` Kaggle notebooks for training, quantizing and the feedback experiment
 - `results/` the raw results of the experiments
+
+## Results
+
+### Big model and small model
+
+94 test receipts.
+
+| | Big model | Small model, trained on checked labels (590) | Small model, trained on all labels (770) |
+|---|---|---|---|
+| Exact match | 61.7% | 66.0% | 62.8% |
+| Items F1 | 86.4% | 88.7% | 84.8% |
+| Answers that pass the checks | 74.5% | 85.1% | 76.6% |
+
+The paired differences are small next to the noise: checked student minus big model is +4.3 points (interval -5.3 to +13.8), and checked minus unchecked is +3.2 (interval -5.3 to +11.7). So I cannot say the small model beats the big one, and I did not show that filtering improves exact match. The one clear sign for filtering is how often the answers pass the checks, 85% against 77%, which matters because the router depends on it.
+
+### Shrinking it for CPU
+
+| File | Size | Exact match | Median seconds per receipt |
+|---|---|---|---|
+| Q4_K_M | 0.99 GB | 56.4% | 7.2 |
+| Q5_K_M | 1.13 GB | 62.8% | 9.1 |
+| Q8_0 | 1.65 GB | 61.7% | 9.8 |
+
+Speeds are from Kaggle's 4 CPU threads. Q4 lost 9.6 points against the unquantized model (interval -18.1 to 0.0), which is probably real. Q5 and Q8 cannot be told apart, so I deployed Q5_K_M. On my own Windows laptop the sample receipt took about 7 seconds. A free Hugging Face Space has only 2 cores, so expect it to be slower there.
+
+### The router
+
+I simulated the router on the same 94 receipts using the real big-model answers. With the Q5_K_M student it reaches 64.9% exact, sends 18 of 94 receipts to the big model, and uses 22% of the big model's tokens compared with sending everything. Against the big model alone that is +3.2 points (interval -4.3 to +10.6).
+
+The checks only test arithmetic. An answer with a wrong item name or quantity but consistent totals passes. Among the answers the Q5_K_M student passed, 76% were exact, not 100%.
