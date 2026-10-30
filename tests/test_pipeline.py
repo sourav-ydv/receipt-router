@@ -145,6 +145,43 @@ def test_decimal_receipt_goes_to_the_teacher():
     assert not result.needs_review
     assert teacher.calls == 1
 
+DECIMAL_GOOD = json.dumps(
+    {
+        "items": [{"name": "Pen", "quantity": 1, "price": 9, "discount": 0}],
+        "subtotal": 9,
+        "discount": None,
+        "service": None,
+        "tax": None,
+        "total": 9,
+    }
+)
+
+
+def test_a_grounded_decimal_receipt_stays_with_the_student():
+    teacher = Teacher(decimal_receipt(), [])
+    result = Router(student_says(DECIMAL_GOOD), teacher).extract("Pen\n9.00\nTOTAL 9.00")
+    assert result.source == "student"
+    assert result.receipt.total == 9
+    assert not result.needs_review
+    assert teacher.calls == 0
+
+
+def test_a_decimal_cash_amount_still_goes_to_the_teacher():
+    parking = json.dumps(
+        {
+            "items": [{"name": "PAY PARKING TICKET", "quantity": 1, "price": 1.5, "discount": 0}],
+            "subtotal": None,
+            "discount": None,
+            "service": None,
+            "tax": 0,
+            "total": 2,
+        }
+    )
+    teacher = Teacher(decimal_receipt(), [])
+    result = Router(student_says(parking), teacher).extract("PAY PARKING TICKET\n1.50\nTOTAL 2.00")
+    assert result.source == "teacher"
+    assert teacher.calls == 1
+
 
 def test_failed_decimal_teacher_needs_review():
     scaled = decimal_receipt()
@@ -156,7 +193,7 @@ def test_failed_decimal_teacher_needs_review():
     assert result.problems == ["ungrounded_amount"]
 
 
-def test_drift_alarm_escalates_the_next_idr_receipt():
+def test_drift_alarm_leaves_a_passing_receipt_with_the_student():
     window = DriftWindow()
     teacher = Teacher(good_receipt(), [])
     router = Router(student_says(GOOD), teacher, drift=window)
@@ -165,9 +202,9 @@ def test_drift_alarm_escalates_the_next_idr_receipt():
     assert window.alarmed is True
     assert teacher.calls == 20
     follow = router.extract(IDR_TEXT)
-    assert follow.source == "teacher"
-    assert follow.teacher_called
-    assert teacher.calls == 21
+    assert follow.source == "student"
+    assert follow.teacher_called is False
+    assert teacher.calls == 20
 
 
 def test_idr_stream_does_not_trip_the_drift_alarm():

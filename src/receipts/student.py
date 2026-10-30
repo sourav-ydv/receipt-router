@@ -2,7 +2,8 @@ import os
 import threading
 import time
 
-from .formatting import INSTRUCTION
+from .drift import detect_locale
+from .formatting import instruction_for
 
 
 class Student:
@@ -23,16 +24,19 @@ class Student:
             verbose=False,
         )
 
+    def messages(self, text):
+        return [
+            {"role": "system", "content": instruction_for(detect_locale(text))},
+            {"role": "user", "content": text},
+        ]
+
     def __call__(self, text):
         if self.llm is None:
             self.load()
         with self.lock:
             started = time.time()
             reply = self.llm.create_chat_completion(
-                messages=[
-                    {"role": "system", "content": INSTRUCTION},
-                    {"role": "user", "content": text},
-                ],
+                messages=self.messages(text),
                 temperature=0,
                 max_tokens=800,
             )

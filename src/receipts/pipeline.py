@@ -54,11 +54,7 @@ class Router:
         problems = ["unparseable"] if receipt is None else check(receipt, text=text, locale=locale)
         if self.drift is not None:
             self.drift.observe(text, bool(problems))
-        if locale == "decimal":
-            problems.append("decimal_locale")
         alarmed = self.drift is not None and self.drift.alarmed
-        if alarmed:
-            problems.append("drift_alarm")
         if not problems:
             return Result(
                 receipt=receipt,

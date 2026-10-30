@@ -83,3 +83,27 @@ def test_decimal_receipt_uses_the_teacher():
     assert body["receipt"]["total"] == 9
     assert body["needs_review"] is False
     assert calls["n"] == 1
+
+def test_a_grounded_decimal_receipt_stays_with_the_student():
+    calls = {"n": 0}
+    answer = json.dumps(
+        {
+            "items": [{"name": "Pen", "quantity": 1, "price": 9, "discount": 0}],
+            "subtotal": 9,
+            "discount": None,
+            "service": None,
+            "tax": None,
+            "total": 9,
+        }
+    )
+
+    def teacher(text):
+        calls["n"] += 1
+        return "raw", decimal_receipt(), [], 10
+
+    router = Router(lambda text: (answer, 0.1, 50), teacher)
+    with TestClient(create_app(lambda: router)) as c:
+        body = c.post("/extract", json={"text": "Pen\n9.00\nTOTAL 9.00"}).json()
+    assert body["source"] == "student"
+    assert body["receipt"]["total"] == 9
+    assert calls["n"] == 0
