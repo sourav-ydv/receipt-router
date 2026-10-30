@@ -2,10 +2,14 @@ import re
 
 from pydantic import ValidationError
 
+from .drift import detect_locale
+from .money import money_tokens
 from .schema import Receipt
 
 RELATIVE_TOLERANCE = 0.0005
 MIN_TOLERANCE = 1.0
+IDR_TOTAL_CAP = 1e11
+DECIMAL_TOTAL_CAP = 1e9
 
 
 def extract_json(text):
@@ -47,7 +51,36 @@ def total_matches(receipt):
     return any(abs(o - receipt.total) <= tolerance(receipt) for o in options)
 
 
-def check(receipt):
+def printed_amounts(receipt):
+    values = []
+    for item in receipt.items:
+        if item.price:
+            values.append(item.price)
+        if item.discount:
+            values.append(item.discount)
+    for name in ("subtotal", "discount", "service", "tax", "total"):
+        value = getattr(receipt, name)
+        if value:
+            values.append(value)
+    return values
+
+
+def grounding_problems(receipt, text, locale):
+    problems = []
+    cap = DECIMAL_TOTAL_CAP if locale == "decimal" else IDR_TOTAL_CAP
+    if receipt.total is not None and abs(receipt.total) > cap:
+        problems.append("implausible_total")
+    tokens = money_tokens(text, locale)
+    limit = tolerance(receipt)
+    if any(
+        not any(abs(value - token) <= limit for token in tokens)
+        for value in printed_amounts(receipt)
+    ):
+        problems.append("ungrounded_amount")
+    return problems
+
+
+def check(receipt, text=None, locale=None):
     failures = []
     if not receipt.items:
         failures.append("no_items")
@@ -64,5 +97,10 @@ def check(receipt):
 
     if not total_matches(receipt):
         failures.append("subtotal_tax_total")
+
+    if text is not None:
+        if locale is None:
+            locale = detect_locale(text)
+        failures.extend(grounding_problems(receipt, text, locale))
 
     return failures

@@ -144,3 +144,73 @@ def test_several_discounts_on_one_item():
 def test_blank_item_name_is_flagged():
     receipt = make([("", 2, 60000)], subtotal=60000, total=60000)
     assert "empty_item_name" in check(receipt)
+
+WARUNG = """WARUNG BU SARI
+2
+Nasi Ayam
+50.000
+1
+Es Teh
+5.000
+ITEMS 2
+SUBTTL 55.000
+PB-1 10% 5.500
+TOTAL 60.500
+CASH 100.000"""
+
+
+def test_printed_indonesian_amounts_stay_grounded():
+    receipt = Receipt(
+        items=[
+            LineItem(name="Nasi Ayam", quantity=2, price=50000),
+            LineItem(name="Es Teh", quantity=1, price=5000),
+        ],
+        subtotal=55000,
+        tax=5500,
+        total=60500,
+    )
+    assert check(receipt, text=WARUNG) == []
+    large = make([("a", 1, 1346000)], subtotal=1346000, total=1346000)
+    assert check(large, text="TOTAL 1.346.000") == []
+
+
+def test_scaled_decimal_total_is_ungrounded():
+    receipt = make([("Pen", 1, 900)], subtotal=900, total=900)
+    assert check(receipt) == []
+    assert check(receipt, text="TOTAL 9.00") == ["ungrounded_amount"]
+
+
+def test_absurd_total_is_implausible():
+    huge = 60_000_000_000
+    receipt = make([("Pen", 1, huge)], subtotal=huge, total=huge)
+    assert check(receipt, text="TOTAL 6.00") == [
+        "implausible_total",
+        "ungrounded_amount",
+    ]
+
+
+def test_zero_price_does_not_need_to_be_printed():
+    receipt = Receipt(
+        items=[
+            LineItem(name="Bag", quantity=1, price=0),
+            LineItem(name="Tea", quantity=1, price=5000),
+        ],
+        subtotal=5000,
+        total=5000,
+    )
+    assert check(receipt, text="Es Teh\n5.000\nTOTAL 5.000") == []
+
+
+def test_a_missing_discount_is_ungrounded():
+    receipt = Receipt(
+        items=[LineItem(name="Bubur", quantity=1, price=26000, discount=7800)],
+        subtotal=18200,
+        total=18200,
+    )
+    assert check(receipt, text="26,000\n-7,800\n18,200") == []
+    assert "ungrounded_amount" in check(receipt, text="26,000\n18,200")
+
+
+def test_explicit_locale_overrides_detection():
+    receipt = make([("Pen", 1, 900)], subtotal=900, total=900)
+    assert check(receipt, text="9.00", locale="idr") == []
