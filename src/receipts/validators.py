@@ -8,6 +8,7 @@ from .schema import Receipt
 
 RELATIVE_TOLERANCE = 0.0005
 MIN_TOLERANCE = 1.0
+DECIMAL_TOLERANCE = 0.01
 IDR_TOTAL_CAP = 1e11
 DECIMAL_TOTAL_CAP = 1e9
 
@@ -24,9 +25,10 @@ def parse_receipt(raw):
         return None
 
 
-def tolerance(receipt):
+def tolerance(receipt, locale="idr"):
     base = receipt.total or receipt.subtotal or 0.0
-    return max(MIN_TOLERANCE, base * RELATIVE_TOLERANCE)
+    floor = DECIMAL_TOLERANCE if locale == "decimal" else MIN_TOLERANCE
+    return max(floor, base * RELATIVE_TOLERANCE)
 
 
 def items_net(receipt):
@@ -43,12 +45,13 @@ def item_targets(receipt):
     return [t for t in targets if t is not None]
 
 
-def total_matches(receipt):
+def total_matches(receipt, locale="idr"):
     if receipt.subtotal is None or receipt.total is None:
         return True
     base = receipt.subtotal - (receipt.discount or 0.0) + (receipt.service or 0.0)
     options = (base + (receipt.tax or 0.0), base)
-    return any(abs(o - receipt.total) <= tolerance(receipt) for o in options)
+    limit = tolerance(receipt, locale)
+    return any(abs(o - receipt.total) <= limit for o in options)
 
 
 def printed_amounts(receipt):
@@ -71,7 +74,7 @@ def grounding_problems(receipt, text, locale):
     if receipt.total is not None and abs(receipt.total) > cap:
         problems.append("implausible_total")
     tokens = money_tokens(text, locale)
-    limit = tolerance(receipt)
+    limit = tolerance(receipt, locale)
     if any(
         not any(abs(value - token) <= limit for token in tokens)
         for value in printed_amounts(receipt)
@@ -81,6 +84,11 @@ def grounding_problems(receipt, text, locale):
 
 
 def check(receipt, text=None, locale=None):
+    if locale is None and text is not None:
+        locale = detect_locale(text)
+    if locale is None:
+        locale = "idr"
+
     failures = []
     if not receipt.items:
         failures.append("no_items")
@@ -92,15 +100,14 @@ def check(receipt, text=None, locale=None):
     targets = item_targets(receipt)
     if receipt.items and targets:
         net = items_net(receipt)
-        if not any(abs(net - t) <= tolerance(receipt) for t in targets):
+        limit = tolerance(receipt, locale)
+        if not any(abs(net - t) <= limit for t in targets):
             failures.append("items_vs_subtotal")
 
-    if not total_matches(receipt):
+    if not total_matches(receipt, locale):
         failures.append("subtotal_tax_total")
 
     if text is not None:
-        if locale is None:
-            locale = detect_locale(text)
         failures.extend(grounding_problems(receipt, text, locale))
 
     return failures

@@ -214,3 +214,21 @@ def test_a_missing_discount_is_ungrounded():
 def test_explicit_locale_overrides_detection():
     receipt = make([("Pen", 1, 900)], subtotal=900, total=900)
     assert check(receipt, text="9.00", locale="idr") == []
+
+def test_decimal_floor_rejects_a_one_unit_gap():
+    receipt = make([("Pen", 1, 9)], subtotal=9, total=10)
+    assert check(receipt, locale="decimal") == ["subtotal_tax_total"]
+    assert check(receipt, text="SUBTOTAL 9.00\nTOTAL 10.00") == ["subtotal_tax_total"]
+
+
+def test_rupiah_floor_still_allows_a_one_unit_gap():
+    receipt = make([("Nasi", 1, 55000)], subtotal=55000, total=55001)
+    assert check(receipt) == []
+    assert check(receipt, locale="idr") == []
+
+
+def test_one_cent_gap_passes_on_a_decimal_receipt():
+    close = make([("Pen", 1, 9)], subtotal=9, total=9.01)
+    wide = make([("Pen", 1, 9)], subtotal=9, total=9.02)
+    assert check(close, text="9.00\n9.01") == []
+    assert check(wide, text="9.00\n9.02") == ["subtotal_tax_total"]
