@@ -1,4 +1,5 @@
 import re
+import threading
 from collections import deque
 
 DECIMAL_AMOUNT = re.compile(r"\d[.,]\d{2}(?!\d)")
@@ -62,3 +63,34 @@ def evaluate_alarm(baseline, before, after, window=20, z=4.0, min_sd=0.1):
     false_alarm = alarm_index(before, baseline, window, z, min_sd) is not None
     index = alarm_index(after, baseline, window, z, min_sd)
     return {"false_alarm": false_alarm, "delay": None if index is None else index + 1}
+
+CORD_REJECTION_RATE = 0.19
+CORD_DECIMAL_SHARE = 0.0
+
+
+class DriftWindow:
+    def __init__(self, window=20, z=4.0, min_sd=0.1):
+        self.window = window
+        self.z = z
+        self.min_sd = min_sd
+        self.rejections = deque(maxlen=window)
+        self.decimals = deque(maxlen=window)
+        self.alarmed = False
+        self.lock = threading.Lock()
+
+    def limit(self):
+        return self.z * self.min_sd / self.window**0.5
+
+    def observe(self, text, rejected):
+        with self.lock:
+            if self.alarmed:
+                return True
+            self.rejections.append(1.0 if rejected else 0.0)
+            self.decimals.append(decimal_share(text))
+            if len(self.rejections) < self.window:
+                return False
+            rejection_shift = abs(sum(self.rejections) / self.window - CORD_REJECTION_RATE)
+            decimal_shift = abs(sum(self.decimals) / self.window - CORD_DECIMAL_SHARE)
+            if rejection_shift > self.limit() or decimal_shift > self.limit():
+                self.alarmed = True
+            return self.alarmed

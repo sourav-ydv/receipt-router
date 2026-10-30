@@ -6,6 +6,7 @@ from receipts.drift import (
     parse_total,
     read_box,
 )
+from receipts.drift import DriftWindow
 
 
 def test_totals_with_currency_marks_are_read():
@@ -97,3 +98,19 @@ def test_a_thousands_group_wins_over_a_stray_small_decimal():
 def test_blank_text_stays_idr():
     assert detect_locale("") == "idr"
     assert detect_locale(None) == "idr"
+
+def test_decimal_window_trips_when_it_fills():
+    window = DriftWindow()
+    text = "TOTAL 9.00\nCASH 10.00"
+    for _ in range(19):
+        assert window.observe(text, True) is False
+    assert window.observe(text, True) is True
+    assert window.alarmed is True
+    assert window.observe("TOTAL 5.000", False) is True
+
+
+def test_cord_rejection_rate_does_not_trip():
+    window = DriftWindow()
+    for i in range(20):
+        assert window.observe("TOTAL 5.000", i < 4) is False
+    assert window.alarmed is False

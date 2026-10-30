@@ -1,5 +1,6 @@
 import json
 
+from receipts.drift import DriftWindow
 from receipts.pipeline import RateBudget, Router
 from receipts.schema import LineItem, Receipt
 
@@ -14,6 +15,8 @@ GOOD = json.dumps(
     }
 )
 WRONG_TOTAL = GOOD.replace('"total": 5000', '"total": 9000')
+SCALED = GOOD.replace("5000", "900")
+IDR_TEXT = "Es Teh\n5.000\nTOTAL 5.000"
 
 
 def student_says(raw):
@@ -39,9 +42,17 @@ def good_receipt():
     )
 
 
+def decimal_receipt():
+    return Receipt(
+        items=[LineItem(name="Pen", quantity=1, price=9)],
+        subtotal=9,
+        total=9,
+    )
+
+
 def test_clean_student_answer_never_reaches_the_teacher():
     teacher = Teacher(good_receipt(), [])
-    result = Router(student_says(GOOD), teacher).extract("text")
+    result = Router(student_says(GOOD), teacher).extract(IDR_TEXT)
     assert result.source == "student"
     assert not result.needs_review
     assert teacher.calls == 0
@@ -100,6 +111,20 @@ def test_escalations_are_logged_when_a_path_is_given(tmp_path):
     record = json.loads(path.read_text().splitlines()[0])
     assert record["text"] == "some text"
     assert record["teacher_called"] is True
+    assert record["locale"] == "idr"
+    assert record["drift_alarm"] is False
+
+
+def test_log_lines_record_both_locales(tmp_path):
+    path = tmp_path / "log.jsonl"
+    teacher = Teacher(good_receipt(), [])
+    router = Router(student_says(WRONG_TOTAL), teacher, log_path=str(path))
+    router.extract("TOTAL 5.000")
+    router.extract("TOTAL 9.00")
+    lines = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [line["locale"] for line in lines] == ["idr", "decimal"]
+    assert lines[0]["drift_alarm"] is False
+    assert lines[1]["drift_alarm"] is False
 
 
 def test_budget_window_expires():
@@ -109,3 +134,50 @@ def test_budget_window_expires():
     assert not budget.take()
     now[0] = 11.0
     assert budget.take()
+
+
+def test_decimal_receipt_goes_to_the_teacher():
+    teacher = Teacher(decimal_receipt(), [])
+    result = Router(student_says(SCALED), teacher).extract("TOTAL 9.00")
+    assert result.source == "teacher"
+    assert result.receipt.total == 9
+    assert result.teacher_called
+    assert not result.needs_review
+    assert teacher.calls == 1
+
+
+def test_failed_decimal_teacher_needs_review():
+    scaled = decimal_receipt()
+    scaled.total = 900
+    teacher = Teacher(scaled, ["ungrounded_amount"])
+    result = Router(student_says(SCALED), teacher).extract("TOTAL 9.00")
+    assert result.source == "teacher"
+    assert result.needs_review
+    assert result.problems == ["ungrounded_amount"]
+
+
+def test_drift_alarm_escalates_the_next_idr_receipt():
+    window = DriftWindow()
+    teacher = Teacher(good_receipt(), [])
+    router = Router(student_says(GOOD), teacher, drift=window)
+    for _ in range(20):
+        router.extract("TOTAL 9.00\nCASH 10.00")
+    assert window.alarmed is True
+    assert teacher.calls == 20
+    follow = router.extract(IDR_TEXT)
+    assert follow.source == "teacher"
+    assert follow.teacher_called
+    assert teacher.calls == 21
+
+
+def test_idr_stream_does_not_trip_the_drift_alarm():
+    window = DriftWindow()
+    teacher = Teacher(good_receipt(), [])
+    router = Router(student_says(GOOD), teacher, drift=window)
+    for i in range(20):
+        text = "bad" if i < 4 else IDR_TEXT
+        result = router.extract(text)
+        if i >= 4:
+            assert result.source == "student"
+    assert window.alarmed is False
+    assert teacher.calls == 4
