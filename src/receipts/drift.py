@@ -2,6 +2,11 @@ import re
 from collections import deque
 
 DECIMAL_AMOUNT = re.compile(r"\d[.,]\d{2}(?!\d)")
+IDR_GROUP = re.compile(r"\d{1,3}(?:\.\d{3})+")
+SMALL_DECIMAL = re.compile(r"(?<!\d)\d{1,2}[.,]\d{2}(?!\d)")
+COMMA_CENTS = re.compile(r"\d{1,3}(?:,\d{3})+\.(?!00(?:\D|$))\d{2}(?!\d)")
+CURRENCY_DECIMAL = re.compile(r"\b(?:RM|MYR)\b", re.IGNORECASE)
+CURRENCY_IDR = re.compile(r"\b(?:Rp|IDR)\b", re.IGNORECASE)
 
 
 def read_box(path):
@@ -26,6 +31,19 @@ def decimal_share(text):
     if not lines:
         return 0.0
     return sum(1 for line in lines if DECIMAL_AMOUNT.search(line)) / len(lines)
+
+
+def detect_locale(text):
+    if not text:
+        return "idr"
+    if CURRENCY_DECIMAL.search(text) and not CURRENCY_IDR.search(text):
+        return "decimal"
+    has_idr_group = IDR_GROUP.search(text) is not None
+    has_small_decimal = SMALL_DECIMAL.search(text) is not None
+    has_comma_cents = COMMA_CENTS.search(text) is not None
+    if not has_idr_group and (has_small_decimal or has_comma_cents):
+        return "decimal"
+    return "idr"
 
 
 def alarm_index(values, baseline, window=20, z=4.0, min_sd=0.1):

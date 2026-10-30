@@ -1,6 +1,7 @@
 from receipts.drift import (
     alarm_index,
     decimal_share,
+    detect_locale,
     evaluate_alarm,
     parse_total,
     read_box,
@@ -56,3 +57,43 @@ def test_evaluation_reports_false_alarms_and_delay():
     assert 1 <= result["delay"] <= 20
     noisy = evaluate_alarm(baseline, [1.0] * 40, [1.0] * 40)
     assert noisy["false_alarm"] is True
+
+
+WARUNG = """WARUNG BU SARI
+2
+Nasi Ayam
+50.000
+1
+Es Teh
+5.000
+ITEMS 2
+SUBTTL 55.000
+PB-1 10% 5.500
+TOTAL 60.500
+CASH 100.000"""
+
+
+def test_indonesian_samples_stay_idr():
+    assert detect_locale(WARUNG) == "idr"
+    assert detect_locale("TOTAL 5.000") == "idr"
+    assert detect_locale("12,500") == "idr"
+    assert detect_locale("100.00") == "idr"
+    assert detect_locale("5,000.00") == "idr"
+    assert detect_locale("47.619,00") == "idr"
+
+
+def test_decimal_samples_are_decimal():
+    ringgit = "TOTAL 9.00\nCASH 10.00\nCHANGE 1.00"
+    assert detect_locale(ringgit) == "decimal"
+    assert detect_locale("RM 1,234.50") == "decimal"
+    assert detect_locale("1,234.50") == "decimal"
+    assert detect_locale("MYR 16.50") == "decimal"
+
+
+def test_a_thousands_group_wins_over_a_stray_small_decimal():
+    assert detect_locale("Nasi 50.000\nService 9.00") == "idr"
+
+
+def test_blank_text_stays_idr():
+    assert detect_locale("") == "idr"
+    assert detect_locale(None) == "idr"
