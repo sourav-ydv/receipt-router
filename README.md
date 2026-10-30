@@ -16,7 +16,7 @@ Measured on 94 held-out receipts from CORD-v2. "Exact" means every extracted fie
 
 With 94 receipts none of these gaps is statistically meaningful (router vs big model: +3.2 points, interval -4.3 to +10.6). What the numbers do support is narrower: the rupiah-only small model is in the same range as the big one, and that router uses about 22% of the big model's tokens.
 
-These three rows are the arithmetic router and the rupiah-only student. The mixed student is further down. It is not folded into this table, and it is not the file on Hugging Face yet.
+These three rows are the arithmetic router and the rupiah-only student. The mixed student is further down. The server downloads the mixed Q5 file.
 
 ## Three things I found
 
@@ -65,7 +65,7 @@ There is a separate prompt for decimal amounts. It says `9.00` means 9 and `1,23
 
 The first student was trained on the big model's labels for the CORD training receipts: 590 passed the checks, 770 could be parsed. The deployed file on Hugging Face is still that model, quantized to Q5_K_M. Its instruction is one line, "Extract the receipt fields as JSON.", and it only saw rupiah text.
 
-The second student was trained on those 590 Indonesian receipts plus 129 checked decimal receipts. Each example carries the instruction for its own locale. The Indonesian one says `12.500` means 12500. The decimal one says `9.00` means 9. The service now sends that same instruction, chosen from the text. The Q5 file from this run is measured below. It is not uploaded yet, so a server started with the default settings still downloads the rupiah-only file.
+The second student was trained on those 590 Indonesian receipts plus 129 checked decimal receipts. Each example carries the instruction for its own locale. The Indonesian one says `12.500` means 12500. The decimal one says `9.00` means 9. The service now sends that same instruction, chosen from the text. The Q5 file from this run is what the server downloads, under the name `Qwen2.5-1.5B-Instruct-mixed.Q5_K_M.gguf`. The rupiah-only Q5 file is still in that repo under its original name.
 
 ### Router and service
 
@@ -205,12 +205,11 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 - The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
 - The drift test is one dataset, one student, 150 receipts, and scores only the total.
 - The first results table is the rupiah-only student and the arithmetic router. The mixed comparison is in the SROIE section.
-- The Hugging Face file is still the rupiah-only Q5 model. The mixed Q5 file is measured here and is not deployed yet. With the rupiah-only file, a page of `9.00` prices still fails the checks and goes to the big model.
+- The server downloads the mixed Q5 file. The rupiah-only Q4, Q5, and Q8 files remain in the Hugging Face repo under their original names.
 - Free tiers set the shape of the project: the big-model labels came from Groq's free quota, training from Kaggle's weekly GPU hours, and there is no live demo.
 
 ## What I would do next
 
-- Upload the mixed Q5 file and point `MODEL_FILE` at it. The code already keeps a decimal answer that passes the checks, and it already sends the locale instruction.
 - Re-run `scripts/drift_report.py` once the new predictions are in `data/`, and keep that output next to the table.
 - Rerun the feedback loop on decimal receipts. On CORD, choosing escalated receipts did not beat choosing at random.
 - Run a real OCR engine on the receipt photos and measure what it costs in accuracy.

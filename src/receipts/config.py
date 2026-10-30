@@ -20,7 +20,7 @@ TEACHER_PAUSE = float(os.getenv("TEACHER_PAUSE", "14"))
 
 MODEL_PATH = os.getenv("MODEL_PATH", "")
 MODEL_REPO = os.getenv("MODEL_REPO", "sourav-ydv25/receipt-student-gguf")
-MODEL_FILE = os.getenv("MODEL_FILE", "Qwen2.5-1.5B-Instruct.Q5_K_M.gguf")
+MODEL_FILE = os.getenv("MODEL_FILE", "Qwen2.5-1.5B-Instruct-mixed.Q5_K_M.gguf")
 MAX_TEACHER_CALLS_PER_HOUR = int(os.getenv("MAX_TEACHER_CALLS_PER_HOUR", "30"))
 MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "8000"))
 ESCALATION_LOG = os.getenv("ESCALATION_LOG", "")
