@@ -3,18 +3,29 @@ import time
 
 from groq import APIConnectionError, Groq, RateLimitError
 from .config import GROQ_API_KEY, GROQ_MODEL, TEACHER_REASONING
+from .drift import detect_locale
 from .validators import check, parse_receipt
 
 MAX_WAIT = 90
 
-SYSTEM_PROMPT = """You extract structured data from receipt text produced by OCR. Reply with one JSON object and nothing else.
+NUMBER_RULE_IDR = (
+    "Numbers are plain numbers with no currency symbol and no thousands separator. "
+    "On these Indonesian receipts 12.500 and 12,500 both mean 12500."
+)
+NUMBER_RULE_DECIMAL = (
+    "Numbers are plain numbers with no currency symbol and no thousands separator. "
+    "A separator followed by exactly two digits is the decimal point: 9.00 means 9 "
+    "and 1,234.50 means 1234.50. Do not multiply a printed amount by 100 or 1000."
+)
+
+PROMPT = """You extract structured data from receipt text produced by OCR. Reply with one JSON object and nothing else.
 
 Fields:
 - items: a list of {name, quantity, price, discount}
 - subtotal, discount, service, tax, total: numbers or null
 
 Rules:
-- Numbers are plain numbers with no currency symbol and no thousands separator. On these Indonesian receipts 12.500 and 12,500 both mean 12500.
+- __NUMBER_RULE__
 - Copy each item name exactly as printed, including trailing words or numbers. Lines such as "ITEMS 2" or "QTY 3" only count items and are not item names.
 - price is the amount printed for the item's line, before that item's own discount.
 - quantity is a whole number. It may be printed before the item name, after it, or as "2 x 25.000". A line holding only a small whole number right before an item name is that item's quantity. Use 1 only when no quantity is printed.
@@ -50,6 +61,29 @@ EXAMPLE_ANSWER = json.dumps(
     }
 )
 
+EXAMPLE_TEXT_DECIMAL = """KEDAI MAJU
+Pen
+9.00
+Pencil
+1.50
+SUBTOTAL 10.50
+TAX 0.60
+TOTAL 11.10"""
+
+EXAMPLE_ANSWER_DECIMAL = json.dumps(
+    {
+        "items": [
+            {"name": "Pen", "quantity": 1, "price": 9, "discount": 0},
+            {"name": "Pencil", "quantity": 1, "price": 1.5, "discount": 0},
+        ],
+        "subtotal": 10.5,
+        "discount": None,
+        "service": None,
+        "tax": 0.6,
+        "total": 11.1,
+    }
+)
+
 
 class DailyLimit(Exception):
     def __init__(self, wait):
@@ -70,11 +104,25 @@ def retry_after(error):
         return 30.0
 
 
-def build_messages(text):
+def prompt_for(locale):
+    rule = NUMBER_RULE_DECIMAL if locale == "decimal" else NUMBER_RULE_IDR
+    return PROMPT.replace("__NUMBER_RULE__", rule)
+
+
+def build_messages(text, locale=None):
+    if locale is None:
+        locale = detect_locale(text)
+    if locale == "decimal":
+        example_text = EXAMPLE_TEXT_DECIMAL
+        example_answer = EXAMPLE_ANSWER_DECIMAL
+    else:
+        locale = "idr"
+        example_text = EXAMPLE_TEXT
+        example_answer = EXAMPLE_ANSWER
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": EXAMPLE_TEXT},
-        {"role": "assistant", "content": EXAMPLE_ANSWER},
+        {"role": "system", "content": prompt_for(locale)},
+        {"role": "user", "content": example_text},
+        {"role": "assistant", "content": example_answer},
         {"role": "user", "content": text},
     ]
 
@@ -110,5 +158,6 @@ def label(client, text):
     if not raw:
         return None, None, None, tokens
     receipt = parse_receipt(raw)
-    problems = check(receipt) if receipt else ["unparseable"]
+    locale = detect_locale(text)
+    problems = check(receipt, text=text, locale=locale) if receipt else ["unparseable"]
     return raw, receipt, problems, tokens
