@@ -6,8 +6,8 @@ from receipts.stats import bootstrap_ci, paired_diff
 from receipts.validators import check, parse_receipt
 
 
-def judge(pred, gold):
-    problems = ["unparseable"] if pred is None else check(pred)
+def judge(pred, gold, text=None):
+    problems = ["unparseable"] if pred is None else check(pred, text=text)
     return score(pred or Receipt(), gold), problems
 
 
@@ -50,11 +50,12 @@ def main():
         students[name] = dict(zip(usable, rows))
 
     gold = {i: Receipt(**test[i]["label"]) for i in ids}
+    texts = {i: test[i]["text"] for i in ids}
     systems = {
-        "teacher": [judge(Receipt(**teacher[i]["label"]) if teacher[i]["label"] else None, gold[i]) for i in ids],
+        "teacher": [judge(Receipt(**teacher[i]["label"]) if teacher[i]["label"] else None, gold[i], texts[i]) for i in ids],
     }
     for name in names:
-        systems[f"student {name}"] = [judge(parse_receipt(students[name][i]["raw"]), gold[i]) for i in ids]
+        systems[f"student {name}"] = [judge(parse_receipt(students[name][i]["raw"]), gold[i], texts[i]) for i in ids]
 
     print(f"{len(ids)} test receipts\n")
     for name, results in systems.items():

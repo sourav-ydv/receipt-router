@@ -31,7 +31,7 @@ def main():
         label = label_of(receipt.total, gold)
         counts[label] += 1
         if label == "other":
-            others.append((p["id"], gold, receipt.total, check(receipt)))
+            others.append((p["id"], gold, receipt.total, check(receipt, text=receipts[p["id"]]["text"])))
 
     print("what the student's total looks like next to the printed one")
     for label, count in counts.most_common():

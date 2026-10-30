@@ -8,7 +8,7 @@ from receipts.validators import check, parse_receipt
 
 def judge(row):
     receipt = parse_receipt(row["raw"])
-    problems = ["unparseable"] if receipt is None else check(receipt)
+    problems = ["unparseable"] if receipt is None else check(receipt, text=row["text"])
     total = receipt.total if receipt else None
     gold = row["gold"]
     if total is None:

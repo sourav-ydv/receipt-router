@@ -2,6 +2,7 @@ from huggingface_hub import hf_hub_download
 
 from . import config
 from .api import create_app
+from .drift import DriftWindow
 from .pipeline import RateBudget, Router
 from .student import Student
 from .teacher import label, make_client
@@ -21,7 +22,7 @@ def build_router():
         client = make_client()
         teacher = lambda text: label(client, text)
     budget = RateBudget(config.MAX_TEACHER_CALLS_PER_HOUR)
-    return Router(student, teacher, budget, config.ESCALATION_LOG or None)
+    return Router(student, teacher, budget, config.ESCALATION_LOG or None, DriftWindow())
 
 
 app = create_app(build_router)
