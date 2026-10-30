@@ -54,6 +54,23 @@ def total_matches(receipt, locale="idr"):
     return any(abs(o - receipt.total) <= limit for o in options)
 
 
+def items_explain_total(receipt, locale="idr"):
+    if receipt.subtotal is not None or receipt.tax is None or receipt.total is None or not receipt.items:
+        return True
+    limit = tolerance(receipt, locale)
+    nets = [items_net(receipt)]
+    if locale == "decimal":
+        weighted = sum(item.quantity * (item.price - item.discount) for item in receipt.items)
+        if weighted != nets[0]:
+            nets.append(weighted)
+    for net in nets:
+        base = net - (receipt.discount or 0.0) + (receipt.service or 0.0)
+        options = (base, base + receipt.tax)
+        if any(abs(option - receipt.total) <= limit for option in options):
+            return True
+    return False
+
+
 def printed_amounts(receipt):
     values = []
     for item in receipt.items:
@@ -106,6 +123,9 @@ def check(receipt, text=None, locale=None):
 
     if not total_matches(receipt, locale):
         failures.append("subtotal_tax_total")
+
+    if not items_explain_total(receipt, locale):
+        failures.append("items_vs_subtotal")
 
     if text is not None:
         failures.extend(grounding_problems(receipt, text, locale))

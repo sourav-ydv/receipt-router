@@ -232,3 +232,68 @@ def test_one_cent_gap_passes_on_a_decimal_receipt():
     wide = make([("Pen", 1, 9)], subtotal=9, total=9.02)
     assert check(close, text="9.00\n9.01") == []
     assert check(wide, text="9.00\n9.02") == ["subtotal_tax_total"]
+
+def test_tax_without_a_subtotal_must_connect_the_items_to_the_total():
+    parking = Receipt(
+        items=[LineItem(name="PAY PARKING TICKET", quantity=1, price=1.5)],
+        tax=0,
+        total=2,
+    )
+    text = "PAY PARKING TICKET\n1.50\nTOTAL 2.00"
+    assert "items_vs_subtotal" in check(parking, text=text, locale="decimal")
+
+    consistent = Receipt(
+        items=[LineItem(name="PAY PARKING TICKET", quantity=1, price=1.5)],
+        tax=0,
+        total=1.5,
+    )
+    assert check(consistent, locale="decimal") == []
+
+    added = Receipt(
+        items=[LineItem(name="Pen", quantity=1, price=12.5)],
+        tax=0.75,
+        total=13.25,
+    )
+    assert check(added, locale="decimal") == []
+
+    included = Receipt(
+        items=[LineItem(name="Pen", quantity=1, price=13.25)],
+        tax=0.75,
+        total=13.25,
+    )
+    assert check(included, locale="decimal") == []
+
+    cash = Receipt(
+        items=[
+            LineItem(name="A", quantity=1, price=0.08),
+            LineItem(name="B", quantity=1, price=0.28),
+            LineItem(name="C", quantity=1, price=0.33),
+        ],
+        tax=0.69,
+        total=50,
+    )
+    assert "items_vs_subtotal" in check(cash, locale="decimal")
+
+def test_decimal_unit_price_is_multiplied_by_quantity():
+    receipt = Receipt(
+        items=[LineItem(name="Stout", quantity=4, price=15.40, discount=0.30)],
+        tax=1.20,
+        total=61.60,
+    )
+    assert check(receipt, locale="decimal") == []
+
+    unrelated = Receipt(
+        items=[LineItem(name="Stout", quantity=4, price=15.40, discount=0.30)],
+        tax=1.20,
+        total=59.31,
+    )
+    assert "items_vs_subtotal" in check(unrelated, locale="decimal")
+
+
+def test_rupiah_line_price_is_not_multiplied_again():
+    receipt = Receipt(
+        items=[LineItem(name="Nasi", quantity=2, price=50000)],
+        tax=0,
+        total=100000,
+    )
+    assert "items_vs_subtotal" in check(receipt, locale="idr")
