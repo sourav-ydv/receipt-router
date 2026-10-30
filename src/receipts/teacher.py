@@ -161,3 +161,22 @@ def label(client, text):
     locale = detect_locale(text)
     problems = check(receipt, text=text, locale=locale) if receipt else ["unparseable"]
     return raw, receipt, problems, tokens
+
+def cord_tasks(rows):
+    return [
+        {"id": i, "text": row["text"]}
+        for i, row in enumerate(rows)
+        if row["usable"] and row.get("text")
+    ]
+
+
+def file_tasks(rows):
+    return [{"id": row["id"], "text": row["text"]} for row in rows if row.get("text")]
+
+
+def remaining(rows, done_ids, limit=None):
+    done = set(done_ids)
+    todo = [row for row in rows if row["id"] not in done]
+    if limit:
+        return todo[:limit]
+    return todo

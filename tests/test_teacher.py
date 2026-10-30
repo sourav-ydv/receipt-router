@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from receipts.teacher import build_messages, label
-
+from receipts.teacher import cord_tasks, file_tasks, remaining
 
 class FakeClient:
     def __init__(self, content):
@@ -89,3 +89,31 @@ def test_scaled_decimal_answer_is_flagged():
     raw, receipt, problems, tokens = label(FakeClient(SCALED), "TOTAL 9.00")
     assert receipt.total == 900
     assert problems == ["ungrounded_amount"]
+
+def test_cord_tasks_keep_usable_row_indexes():
+    rows = [
+        {"usable": True, "text": "TOTAL 5.000"},
+        {"usable": False, "text": "skip"},
+        {"usable": True, "text": "TOTAL 9.00"},
+    ]
+    assert cord_tasks(rows) == [
+        {"id": 0, "text": "TOTAL 5.000"},
+        {"id": 2, "text": "TOTAL 9.00"},
+    ]
+
+def test_file_tasks_keep_the_given_ids():
+    rows = [
+        {"id": "376", "text": "TOTAL 9.00", "total": 9.0},
+        {"id": "12", "text": "", "total": 1.0},
+    ]
+    assert file_tasks(rows) == [{"id": "376", "text": "TOTAL 9.00"}]
+    
+def test_remaining_skips_finished_ids_and_applies_the_limit():
+    rows = [
+        {"id": "a", "text": "1"},
+        {"id": "b", "text": "2"},
+        {"id": "c", "text": "3"},
+    ]
+    assert remaining(rows, {"b"}) == [rows[0], rows[2]]
+    assert remaining(rows, set(), limit=2) == rows[:2]
+    assert remaining(rows, set(), limit=None) == rows
