@@ -1,6 +1,6 @@
 # receipt-router
 
-Receipt text goes in and structured fields come out: line items, subtotal, tax, total. A small fine-tuned model does the reading. If its answer fails the checks, or if the prices are written like 9.00, the receipt goes to a much bigger model instead.
+Receipt text goes in and structured fields come out: line items, subtotal, tax, total. A small fine-tuned model does the reading. If its answer fails the checks, the receipt goes to a much bigger model. A decimal receipt that passes the checks stays with the small model.
 
 Everything here ran on free tiers: Groq's free API for the big model, Kaggle's free GPU for training, and an ordinary laptop for inference. Nothing cost money.
 
@@ -14,17 +14,17 @@ Measured on 94 held-out receipts from CORD-v2. "Exact" means every extracted fie
 | Small model, 4-bit file for CPU (Q5_K_M) | 62.8% | 100% |
 | Small model plus router | 64.9% | 81% |
 
-With 94 receipts none of these gaps is statistically meaningful (router vs big model: +3.2 points, interval -4.3 to +10.6). What the numbers do support is narrower: the small model is in the same range as the big one, and the router uses about 22% of the big model's tokens.
+With 94 receipts none of these gaps is statistically meaningful (router vs big model: +3.2 points, interval -4.3 to +10.6). What the numbers do support is narrower: the rupiah-only small model is in the same range as the big one, and that router uses about 22% of the big model's tokens.
 
-These three rows are the arithmetic router on Indonesian receipts. The grounding check and the decimal escalation described below were added later and have not been folded back into this table.
+These three rows are the arithmetic router and the rupiah-only student. The mixed student is further down. It is not folded into this table, and it is not the file on Hugging Face yet.
 
 ## Three things I found
 
 1. Checking the big model's labels with arithmetic rules matters. Its answers that pass the checks are right far more often than the rest (81% exact against 62% overall), so I trained the small model only on the ones that pass.
 2. Sending hard receipts back to the big model and training on them did not beat training on random receipts. That experiment is in the feedback loop section.
-3. On a different kind of receipt (Malaysian, prices written like 9.00) the small model's total accuracy fell from 99% to 13%, and the arithmetic checks accepted most of the wrong answers. A monitor that needs no labels noticed the change after about 20 receipts. The service now escalates that kind of receipt and rejects amounts that are not printed. The SROIE table further down is still the arithmetic-only measurement.
+3. On Malaysian receipts, where prices look like `9.00`, the rupiah-only student got 12.7% of totals right and the arithmetic checks accepted 59 of 65 wrong answers. A second student, trained on both kinds of receipt, got 88.7% of those totals right. With the current checks, 0 of the 67 answers it passed had the wrong total.
 
-The numbers come from the files in `results/` and from the scripts in `scripts/`.
+The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed-student numbers are from the Kaggle run and from the held-out SROIE file on my laptop. They are not in `results/` yet.
 
 ## How it works
 
@@ -42,13 +42,14 @@ A few rules decide whether an answer looks believable:
 
 - the item prices (minus item discounts) add up to the subtotal, or to the total on tax-inclusive receipts
 - subtotal, minus discount, plus service, plus tax equals the total
+- when the subtotal is missing and a tax is filled in, including a tax of zero, the items have to reach the total on their own or with the tax added. On a decimal receipt the price may be a unit price, so the quantity counts. A rupiah price is already the line total, so the quantity is not applied again
 - there is a total, at least one item, and no blank item names
 - when the receipt text is available, every non-zero amount also has to match a number printed on the page. `9.00` read as `900` fails this, because `900` is not on the page. Zero and null do not have to be printed
-- a decimal total above one billion, or a rupiah total above one hundred billion, is rejected. That is the backstop for a total of 60 billion
+- a decimal total above one billion, or a rupiah total above one hundred billion, is rejected
 
 The page is read as Indonesian when amounts look like `50.000`, and as decimal when they look like `9.00` or the text says RM or MYR. One dot-thousands group keeps the page Indonesian even if a stray `9.00` is also there.
 
-Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receipts and 0.01 on decimal ones. On the usable training receipts, the gold labels themselves pass the arithmetic rules on 730 of 771 (94.7%). The rest are annotation quirks. I did not bend the rules to fit them. Training still filters on arithmetic only. The "is this number printed?" rule is used when a live answer is checked against its receipt text.
+Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receipts and 0.01 on decimal ones. On the usable training receipts, the gold labels themselves pass the arithmetic rules on 730 of 771 (94.7%). The rest are annotation quirks. I did not bend the rules to fit them. Training still filters on the checks that existed when the file was built. The later "items must reach the total" rule is used on live answers.
 
 ### The big model (teacher)
 
@@ -56,24 +57,27 @@ Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receip
 
 I wrote the second prompt after reading the first one's errors on the test split, so the test score is a little optimistic. I also ran it on the validation split, which I had not looked at: 66.7% exact, and about 82% of answers passed the checks.
 
-There is now a separate prompt for decimal amounts. It says `9.00` means 9 and `1,234.50` means 1234.50, and its worked example is a small decimal receipt rather than the Indonesian one. The Indonesian prompt is unchanged. I have not measured the decimal prompt on SROIE.
+There is a separate prompt for decimal amounts. It says `9.00` means 9 and `1,234.50` means 1234.50, and its worked example is a small decimal receipt. I used it to label the decimal training receipts. I have not scored the teacher itself on the 150 held-out SROIE receipts.
 
 ### The small model (student)
 
-`Qwen2.5-1.5B-Instruct`, fine-tuned with QLoRA (rank 16) using Unsloth on a free Kaggle T4. Three epochs take 6 to 8 minutes. The training data is the big model's labels on the 771 labeled training receipts: 590 passed the checks, 770 could be parsed. I trained one student on each set to see whether the filtering helps.
+`Qwen2.5-1.5B-Instruct`, fine-tuned with QLoRA (rank 16) using Unsloth on a free Kaggle T4. Three epochs take 6 to 8 minutes.
 
-The deployed file is still that model. Its instruction is one line, "Extract the receipt fields as JSON.", and it was trained only on rupiah text. It has not been retrained to read `9.00` as 9. The router does not trust it on decimal receipts.
+The first student was trained on the big model's labels for the CORD training receipts: 590 passed the checks, 770 could be parsed. The deployed file on Hugging Face is still that model, quantized to Q5_K_M. Its instruction is one line, "Extract the receipt fields as JSON.", and it only saw rupiah text.
+
+The second student was trained on those 590 Indonesian receipts plus 129 checked decimal receipts. Each example carries the instruction for its own locale. The Indonesian one says `12.500` means 12500. The decimal one says `9.00` means 9. The service now sends that same instruction, chosen from the text. The Q5 file from this run is measured below. It is not uploaded yet, so a server started with the default settings still downloads the rupiah-only file.
 
 ### Router and service
 
-The student answers first. On an Indonesian receipt its answer is kept when the arithmetic passes and every non-zero amount matches a printed number. A decimal receipt goes to the big model even when the arithmetic passes. The same escalation happens for every later receipt after the drift alarm trips. The alarm watches the last 20 receipts, compares them with the CORD rejection rate and the CORD share of two-digit decimals, and stays on for the life of the process once it fires.
+The student answers first. Its answer is kept when the checks pass, on an Indonesian receipt and on a decimal one. A failing decimal receipt still goes to the big model on its own.
+
+The drift window still watches the last 20 receipts and still trips when the rejection rate or the share of two-digit decimals moves away from the CORD baseline. The escalation log records that. The alarm no longer overrides an answer that passes the checks. It used to, because arithmetic alone accepted totals that were 100 times too big.
 
 A cap on big-model calls per hour keeps a public demo from using up the free quota. If the big model is missing, over budget, or its answer still fails, the student answer is returned and marked for review. The service is a small FastAPI app:
 
 ```
 python -m uvicorn receipts.server:app --port 8000
 ```
-
 
 There is no live demo. On Hugging Face's free tier, Docker and CPU Spaces are paid, and the free option is a GPU-sharing Space that does not fit a CPU model.
 
@@ -88,7 +92,7 @@ There is no live demo. On Hugging Face's free tier, Docker and CPU Spaces are pa
 
 ### Big model and small model
 
-94 test receipts.
+94 test receipts. This is the rupiah-only student.
 
 | | Big model | Small model, trained on checked labels (590) | Small model, trained on all labels (770) |
 |---|---|---|---|
@@ -110,11 +114,13 @@ The "pass the checks" row is arithmetic only, from before amounts had to match t
 
 Speeds are from Kaggle's 4 CPU threads. Q4 lost 9.6 points against the unquantized model (interval -18.1 to 0.0), which is probably real. Q5 and Q8 cannot be told apart, so I deployed Q5_K_M. On my own Windows laptop the sample receipt took about 7 seconds. A free Hugging Face Space has only 2 cores, so expect it to be slower there.
 
+This table is the rupiah-only student. The mixed Q5 file is the same size, 1.13 GB, and took a median 10.0 seconds on the same 4 threads.
+
 ### The router
 
-I simulated the router on the same 94 receipts using the real big-model answers. With the Q5_K_M student it reaches 64.9% exact, sends 18 of 94 receipts to the big model, and uses 22% of the big model's tokens compared with sending everything. Against the big model alone that is +3.2 points (interval -4.3 to +10.6).
+I simulated the router on the same 94 receipts using the real big-model answers. With the rupiah-only Q5 student it reaches 64.9% exact, sends 18 of 94 receipts to the big model, and uses 22% of the big model's tokens compared with sending everything. Against the big model alone that is +3.2 points (interval -4.3 to +10.6).
 
-That simulation used the arithmetic checks. An answer with a wrong item name or quantity but consistent totals passes. Among the answers the Q5_K_M student passed, 76% were exact, not 100%.
+That simulation used the arithmetic checks. An answer with a wrong item name or quantity but consistent totals passes. Among the answers the rupiah-only Q5 student passed, 76% were exact, not 100%.
 
 ## Does sending hard receipts back make the student better?
 
@@ -142,7 +148,7 @@ My conclusion: the loop gives you training data as a free by-product of routing,
 
 ## What happens on a different kind of receipt
 
-I ran the Q5_K_M student on 150 receipts from SROIE, Malaysian receipts where prices look like `9.00`. The student only ever saw Indonesian ones, where a dot is a thousands separator (`25.000`). SROIE gives only the total, so only the total is scored.
+I ran the rupiah-only Q5 student on 150 receipts from SROIE, Malaysian receipts where prices look like `9.00`. That student only ever saw Indonesian ones, where a dot is a thousands separator (`25.000`). SROIE gives only the total, so only the total is scored.
 
 | | CORD test (training domain) | SROIE (new domain) |
 |---|---|---|
@@ -153,26 +159,43 @@ I ran the Q5_K_M student on 150 receipts from SROIE, Malaysian receipts where pr
 | Rejected by the checks | 19.1% | 56.7% |
 | Passed the checks but total wrong | 0 of 76 | 59 of 65 |
 
-The last row is the important one. On the new receipts the arithmetic checks accepted 65 answers, and 59 of them had the wrong total. A total that is consistently 100 times too big still adds up, so arithmetic cannot see it. One accepted answer had a total of 60 billion.
+The last row is the important one for that model. On the new receipts the arithmetic checks accepted 65 answers, and 59 of them had the wrong total. A total that is consistently 100 times too big still adds up, so arithmetic cannot see it. One accepted answer had a total of 60 billion.
 
-The service no longer keeps that answer. Each non-zero amount has to match a printed number, and a page of `9.00` prices is sent to the big model even if the parts add up. I have not re-scored these 150 predictions under that rule, so the table is the old measurement. The decimal teacher prompt has not been scored on SROIE either.
+Looking at the totals more closely (see `results/drift/errors.txt`): 65 were off by exactly 100, 38 by exactly 1000, 23 in some other way, 19 were right and 5 could not be parsed. The student reads `9.00` as 900, which is what it learned from the rupiah receipts.
 
-Looking at the totals more closely (see `results/drift/errors.txt`): 65 were off by exactly 100, 38 by exactly 1000, 23 in some other way (many of those look like a scaled total from a neighbouring line), 19 were right and 5 could not be parsed. The student reads `9.00` as 900, which is what it learned from the rupiah receipts.
+### After training on both kinds of receipt
+
+The mixed student is the same base model, trained for 3 epochs on 719 examples: the 590 checked CORD receipts and 129 checked SROIE receipts. The other 150 SROIE receipts were held out and never entered training. Validation loss on the Indonesian validation split fell from 0.013 to 0.005. The run took about 8 minutes on a T4.
+
+On the 94 CORD test receipts, the Q5 file scored 68.1% exact and 89.7% item F1, with the total right on 98.9%. The rupiah-only Q5 file scored 62.8% exact. Both passed the arithmetic checks on 80 of 94 receipts. The median time was 10.0 seconds. The unquantized mixed run scored 63.8% exact, so this quantization did not cost accuracy. A few receipts on a set of 94 is the same size of gap the rest of this report treats as noise. I am not claiming the mixed student is better on CORD. The CORD score held.
+
+On the 150 held-out SROIE receipts, scored with the current checks:
+
+| | Rupiah-only Q5 | Mixed Q5 |
+|---|---|---|
+| Receipts | 150 | 150 |
+| Total correct | 12.7% | 88.7% |
+| Total off by a factor of 100 | 43.3% | 0% |
+| Wrong or missing in another way | 44.0% | 11.3% |
+| Passed the checks | 65, arithmetic only | 67, current checks |
+| Passed but total wrong | 59 of 65 | 0 of 67 |
+
+The pass counts use different checks, so they are not a direct comparison. The last row is. Of the 150 mixed answers, 67 pass and would stay with the student, and all 67 totals are right. The other 83 fail and go to the big model. 66 of those 83 have the right total anyway: the items, the tax, or a printed number did not line up, so the checker refused an answer it could not add up. 148 of the 150 were given the decimal instruction. Two looked Indonesian to the detector and got the rupiah instruction.
 
 ### Noticing it without labels
 
 Two signals that need no gold labels, each compared with the first half of the CORD test receipts over a rolling window of 20:
 
-- the share of receipts the checks reject: 19% on CORD, 57% on SROIE. It fired after 23 SROIE receipts.
+- the share of receipts the checks reject: 19% on CORD, 57% on the rupiah-only SROIE run. It fired after 23 SROIE receipts.
 - the share of lines with two-digit decimals, an input feature: it fired after 20 SROIE receipts, which is the earliest a window of 20 allows.
 
 Neither raised a false alarm on the second half of the CORD receipts. So the rejection rate is a poor safety net on a new domain but a good alarm.
 
-The same window now runs inside the service. Once it trips, later receipts go to the big model until the process stops. A decimal page is escalated on its own, before the window fills.
+The same window still runs inside the service, and an escalation records whether it has tripped. It no longer sends a passing answer to the big model. A decimal page that fails the checks still goes to the big model before the window fills.
 
-On my laptop SROIE receipts were slower than CORD: median 14.9 seconds, 95th percentile 34.4, maximum 99.2. They are longer, so the model writes more.
+On my laptop the rupiah-only SROIE run was slower than CORD: median 14.9 seconds, 95th percentile 34.4, maximum 99.2. Those receipts are longer, so the model writes more.
 
-Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in layout and line order as well as in number format, so I cannot blame everything on decimals.
+Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in layout and line order as well as in number format. The mixed pass rate depends on the current checks. The old column does not.
 
 ## Limits
 
@@ -181,20 +204,19 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 - I wrote the second teacher prompt after reading test-split errors. I checked it on validation, but the test numbers for the big model are a little optimistic.
 - The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
 - The drift test is one dataset, one student, 150 receipts, and scores only the total.
-- The tables above predate the grounding check and the decimal escalation. Both are in the service and covered by tests. They are not yet in the published percentages.
-- The student weights are still the rupiah-only Q5 file. Decimal receipts are escalated, not read by the small model.
+- The first results table is the rupiah-only student and the arithmetic router. The mixed comparison is in the SROIE section.
+- The Hugging Face file is still the rupiah-only Q5 model. The mixed Q5 file is measured here and is not deployed yet. With the rupiah-only file, a page of `9.00` prices still fails the checks and goes to the big model.
 - Free tiers set the shape of the project: the big-model labels came from Groq's free quota, training from Kaggle's weekly GPU hours, and there is no live demo.
 
 ## What I would do next
 
-- Re-run `scripts/drift_report.py` and `scripts/compare_models.py` once `data/` is present, and replace the tables if the new checks move them.
-- Label decimal receipts with the new teacher prompt and retrain the student with the locale written into its instruction. Then score CORD again before switching the deployed file.
+- Upload the mixed Q5 file and point `MODEL_FILE` at it. The code already keeps a decimal answer that passes the checks, and it already sends the locale instruction.
+- Re-run `scripts/drift_report.py` once the new predictions are in `data/`, and keep that output next to the table.
 - Rerun the feedback loop on decimal receipts. On CORD, choosing escalated receipts did not beat choosing at random.
 - Run a real OCR engine on the receipt photos and measure what it costs in accuracy.
 - Get more test receipts so the intervals shrink.
 
 ## Running it
-
 
 ```
 pip install -e ".[dev,data,serve]"
@@ -203,8 +225,7 @@ pytest
 python scripts/prepare_data.py
 ```
 
-
-The big-model labeling needs a free Groq key in `.env` (see `.env.example`). Training and quantizing run in the Kaggle notebooks in `notebooks/`. The quantized model is on Hugging Face at `sourav-ydv25/receipt-student-gguf`.
+The big-model labeling needs a free Groq key in `.env` (see `.env.example`). Training and quantizing run in the Kaggle notebooks in `notebooks/`. The quantized model that the server downloads today is on Hugging Face at `sourav-ydv25/receipt-student-gguf`.
 
 ## Credits
 
