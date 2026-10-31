@@ -3,7 +3,7 @@ import threading
 from collections import deque
 
 DECIMAL_AMOUNT = re.compile(r"\d[.,]\d{2}(?!\d)")
-IDR_GROUP = re.compile(r"\d{1,3}(?:\.\d{3})+")
+IDR_GROUP = re.compile(r"(?<!\d)(?!0\.)\d{1,3}(?:\.\d{3})+")
 SMALL_DECIMAL = re.compile(r"(?<!\d)\d{1,2}[.,]\d{2}(?!\d)")
 COMMA_CENTS = re.compile(r"\d{1,3}(?:,\d{3})+\.(?!00(?:\D|$))\d{2}(?!\d)")
 CURRENCY_DECIMAL = re.compile(r"\b(?:RM|MYR)\b", re.IGNORECASE)

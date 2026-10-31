@@ -114,3 +114,9 @@ def test_cord_rejection_rate_does_not_trip():
     for i in range(20):
         assert window.observe("TOTAL 5.000", i < 4) is False
     assert window.alarmed is False
+
+def test_a_leading_zero_does_not_look_like_rupiah():
+    assert detect_locale("TOTAL 6.06\nTAX 0.348\nCASH 20.00") == "decimal"
+    assert detect_locale("TOTAL 5.000") == "idr"
+    assert detect_locale("Nasi 50.000\nService 9.00") == "idr"
+

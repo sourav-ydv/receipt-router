@@ -45,7 +45,7 @@ A few rules decide whether an answer looks believable:
 - when the receipt text is available, every non-zero amount also has to match a number printed on the page. `9.00` read as `900` fails this, because `900` is not on the page. Zero and null do not have to be printed
 - a decimal total above one billion, or a rupiah total above one hundred billion, is rejected
 
-The page is read as Indonesian when amounts look like `50.000`, and as decimal when they look like `9.00` or the text says RM or MYR. One dot-thousands group keeps the page Indonesian even if a stray `9.00` is also there.
+The page is read as Indonesian when amounts look like `50.000`, and as decimal when they look like `9.00` or the text says RM or MYR. One dot-thousands group keeps the page Indonesian even if a stray `9.00` is also there. A group written `0.348` does not count. `50.000` and `5.000` still do.
 
 Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receipts and 0.01 on decimal ones. On the usable training receipts, the gold labels themselves pass the arithmetic rules on 730 of 771 (94.7%). The rest are annotation quirks. I did not bend the rules to fit them. Training still filters on the checks that existed when the file was built. Two later rules are used on live answers only: the items have to reach the total, and a tax larger than the total has to be added in.
 
@@ -184,7 +184,7 @@ The pass counts use different checks, so they are not a direct comparison. The l
 
 The same 150 held-out receipts, read from the page images with Tesseract 5.5.0 (`--psm 6`) instead of the dataset's text boxes. The mixed Q5 student got 98 of 150 totals right (65.3%), against 133 of 150 (88.7%) on the clean text. One total was off by a factor of 100. On this laptop the median time was 8.8 seconds and the longest was 56.3.
 
-The checks kept 41 answers and rejected 109. Of the 41, one total is wrong: receipt 507, gold 6.00, prediction 6.06. Tesseract wrote `0.348`, the locale detector treated the page as rupiah, and the one-rupiah tolerance covered the six cents. A tax larger than the total no longer passes as already included. Before that rule, two more wrong OCR totals passed: a 1.20 tax read as 120, and a 0.28 tax read as 28. The tally is in `results/mixed/sroie_ocr.txt`. 134 of the 150 OCR pages got the decimal instruction. 16 looked Indonesian. The clean-text 0 of 67 was scored before the tax rule.
+The checks kept 41 answers and rejected 109. Of the 41, one total is wrong: receipt 507, gold 6.00, prediction 6.06. Tesseract wrote `0.348`, the locale detector treated the page as rupiah, and the one-rupiah tolerance covered the six cents. A tax larger than the total no longer passes as already included. Before that rule, two more wrong OCR totals passed: a 1.20 tax read as 120, and a 0.28 tax read as 28. The tally is in `results/mixed/sroie_ocr.txt`. 134 of the 150 OCR pages got the decimal instruction. 16 looked Indonesian. The clean-text 0 of 67 was scored before the tax rule. These photo numbers also predate the leading-zero rule: under it, 507 is decimal and the check rejects it.
 
 The 109 rejected pages went to the big model. The router returns 111 of 150 totals right (74.0%), against 98 for the student alone. Of those 109, the big model keeps 55 right totals, replaces 3 right totals, and fixes 16 wrong ones. Thirty-five stay wrong. Three teacher replies do not parse, so the student answer stands. None of the router totals are off by a factor of 100. Forty-eight router answers pass the checks. Two of those totals differ from the dataset: receipt 507, above, and receipt 173, where the dataset total is 60.60 and the page says Grand Total 33.00 after a 27.60 coupon. Cash 50.00 with 17.00 change agrees with 33.00, so the check is following the page. The tally is in `results/mixed/sroie_ocr_router.txt`.
 
@@ -218,7 +218,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 
 - Re-run `scripts/drift_report.py` once the new predictions are in `data/`, and keep that output next to the table.
 - Rerun the feedback loop on decimal receipts. On CORD, choosing escalated receipts did not beat choosing at random.
-- Receipt 507 is a Malaysian page read as Indonesian because Tesseract wrote 0.348. A tighter locale rule still has to keep a real rupiah amount such as 50.000.
+- Send receipt 507 to the big model. The leading-zero rule now rejects it, and the published photo router never called the big model on it.
 - Get more test receipts so the intervals shrink.
 
 ## Running it
