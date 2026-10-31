@@ -1,0 +1,7 @@
+mixed student (94): total 98.9%, subtotal 91.5%, discount 98.9%, service 97.9%, tax 95.7%, items_f1 89.7%, exact 68.1%
+passed current checks: 78 of 94
+sent to teacher: 16
+teacher answer passed the checks: 2
+teacher missing: 0
+locales: {'idr': 90, 'decimal': 4}
+router (94): total 98.9%, subtotal 92.6%, discount 97.9%, service 97.9%, tax 96.8%, items_f1 89.5%, exact 68.1%

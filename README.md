@@ -11,12 +11,10 @@ Measured on 94 held-out receipts from CORD-v2. "Exact" means every extracted fie
 | System | Exact match | Receipts answered without the big model |
 |---|---|---|
 | Big model (gpt-oss-120b) on every receipt | 61.7% | 0% |
-| Small model, 4-bit file for CPU (Q5_K_M) | 62.8% | 100% |
-| Small model plus router | 64.9% | 81% |
+| Mixed Q5 student | 68.1% | 100% |
+| Mixed Q5 student plus the current router | 68.1% | 83% |
 
-With 94 receipts none of these gaps is statistically meaningful (router vs big model: +3.2 points, interval -4.3 to +10.6). What the numbers do support is narrower: the rupiah-only small model is in the same range as the big one, and that router uses about 22% of the big model's tokens.
-
-These three rows are the arithmetic router and the rupiah-only student. The mixed student is further down. The server downloads the mixed Q5 file.
+The mixed student is the file the server downloads. The current checks pass 78 of these 94 answers and send 16 to the big model. Two of those 16 big-model answers pass the same checks. Exact match stays 64 of 94 either way. With 94 receipts, 68.1% against the big model's 61.7% is about six receipts, which this report treats as noise. The router is not ahead of the student on Indonesian receipts. The rupiah-only arithmetic run, 62.8% for that student and 64.9% for that router, is in the results section. Four of the 94 looked decimal to the detector. The answers in this table were produced with the Indonesian instruction.
 
 ## Three things I found
 
@@ -24,7 +22,7 @@ These three rows are the arithmetic router and the rupiah-only student. The mixe
 2. Sending hard receipts back to the big model and training on them did not beat training on random receipts. That experiment is in the feedback loop section.
 3. On Malaysian receipts, where prices look like `9.00`, the rupiah-only student got 12.7% of totals right and the arithmetic checks accepted 59 of 65 wrong answers. A second student, trained on both kinds of receipt, got 88.7% of those totals right. With the current checks, 0 of the 67 answers it passed had the wrong total.
 
-The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed-student numbers are from the Kaggle run and from the held-out SROIE file on my laptop. They are not in `results/` yet.
+The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed CORD rescore is in `results/mixed/`. The Malaysian answers are on my laptop. SROIE is not redistributed here.
 
 ## How it works
 
@@ -167,7 +165,7 @@ Looking at the totals more closely (see `results/drift/errors.txt`): 65 were off
 
 The mixed student is the same base model, trained for 3 epochs on 719 examples: the 590 checked CORD receipts and 129 checked SROIE receipts. The other 150 SROIE receipts were held out and never entered training. Validation loss on the Indonesian validation split fell from 0.013 to 0.005. The run took about 8 minutes on a T4.
 
-On the 94 CORD test receipts, the Q5 file scored 68.1% exact and 89.7% item F1, with the total right on 98.9%. The rupiah-only Q5 file scored 62.8% exact. Both passed the arithmetic checks on 80 of 94 receipts. The median time was 10.0 seconds. The unquantized mixed run scored 63.8% exact, so this quantization did not cost accuracy. A few receipts on a set of 94 is the same size of gap the rest of this report treats as noise. I am not claiming the mixed student is better on CORD. The CORD score held.
+On the 94 CORD test receipts, the Q5 file scored 68.1% exact and 89.7% item F1, with the total right on 98.9%. The rupiah-only Q5 file scored 62.8% exact. The arithmetic checks passed 80 of 94. The current checks pass 78 of 94 and send 16 to the big model, and exact match stays 68.1%. The tally and the saved answers are in `results/mixed/`. The median time was 10.0 seconds. The unquantized mixed run scored 63.8% exact, so this quantization did not cost accuracy. A few receipts on a set of 94 is the same size of gap the rest of this report treats as noise. I am not claiming the mixed student is better on CORD. The CORD score held.
 
 On the 150 held-out SROIE receipts, scored with the current checks:
 
@@ -204,7 +202,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 - I wrote the second teacher prompt after reading test-split errors. I checked it on validation, but the test numbers for the big model are a little optimistic.
 - The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
 - The drift test is one dataset, one student, 150 receipts, and scores only the total.
-- The first results table is the rupiah-only student and the arithmetic router. The mixed comparison is in the SROIE section.
+- The headline is the mixed Q5 file with the current checks. The rupiah-only arithmetic table is kept under Results.
 - The server downloads the mixed Q5 file. The rupiah-only Q4, Q5, and Q8 files remain in the Hugging Face repo under their original names.
 - Free tiers set the shape of the project: the big-model labels came from Groq's free quota, training from Kaggle's weekly GPU hours, and there is no live demo.
 
