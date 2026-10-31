@@ -1,0 +1,8 @@
+held-out receipts: 150
+total correct: 133 (88.7%)
+off by 100: 0 (0.0%)
+accepted but wrong: 0
+correct and accepted: 67
+correct but rejected: 66
+wrong and rejected: 17
+locales: {'decimal': 148, 'idr': 2}

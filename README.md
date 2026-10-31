@@ -22,7 +22,7 @@ The mixed student is the file the server downloads. The current checks pass 78 o
 2. Sending hard receipts back to the big model and training on them did not beat training on random receipts. That experiment is in the feedback loop section.
 3. On Malaysian receipts, where prices look like `9.00`, the rupiah-only student got 12.7% of totals right and the arithmetic checks accepted 59 of 65 wrong answers. A second student, trained on both kinds of receipt, got 88.7% of those totals right. With the current checks, 0 of the 67 answers it passed had the wrong total.
 
-The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed CORD rescore is in `results/mixed/`. The Malaysian answers are on my laptop. SROIE is not redistributed here.
+The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed CORD rescore and the Malaysian tally are in `results/mixed/`. The Malaysian receipt text is not redistributed here.
 
 ## How it works
 
