@@ -1,0 +1,5 @@
+id: 507
+gold: 6.00
+student: 6.06, rejected after the leading-zero rule
+teacher: 6.06, problems: items_vs_subtotal
+router total stays 6.06, so 111/150 is unchanged
