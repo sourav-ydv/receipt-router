@@ -297,3 +297,27 @@ def test_rupiah_line_price_is_not_multiplied_again():
         total=100000,
     )
     assert "items_vs_subtotal" in check(receipt, locale="idr")
+
+def test_tax_larger_than_the_total_cannot_be_ignored():
+    exclusive = Receipt(
+        items=[LineItem(name="Oil", quantity=1, price=20)],
+        subtotal=20,
+        tax=120,
+        total=20,
+    )
+    assert "subtotal_tax_total" in check(exclusive, locale="decimal")
+
+    copied = Receipt(
+        items=[LineItem(name="Copy", quantity=1, price=4.72)],
+        tax=28,
+        total=4.72,
+    )
+    assert "items_vs_subtotal" in check(copied, locale="idr")
+
+    included = Receipt(
+        items=[LineItem(name="Pen", quantity=1, price=13.25)],
+        tax=0.75,
+        total=13.25,
+    )
+    assert check(included, locale="decimal") == []
+

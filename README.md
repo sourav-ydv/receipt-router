@@ -28,7 +28,7 @@ The numbers come from the files in `results/` and from the scripts in `scripts/`
 
 ### Data
 
-CORD-v2 from Hugging Face (`naver-clova-ix/cord-v2`): photos of Indonesian receipts with annotations, split 800 train, 100 validation, 100 test. I use the annotation lines, joined into plain text, as the input. A real deployment would get text from an OCR engine. I did not test that, so the numbers describe reading clean text, not reading photos.
+CORD-v2 from Hugging Face (`naver-clova-ix/cord-v2`): photos of Indonesian receipts with annotations, split 800 train, 100 validation, 100 test. I use the annotation lines, joined into plain text, as the input. The CORD numbers below are that clean text. On the held-out Malaysian photos I also ran Tesseract, and that comparison is under Reading the photos.
 
 29 of the 800 training receipts and 6 of the 100 test receipts are unusable (no total, or items without names) and are left out.
 
@@ -47,7 +47,7 @@ A few rules decide whether an answer looks believable:
 
 The page is read as Indonesian when amounts look like `50.000`, and as decimal when they look like `9.00` or the text says RM or MYR. One dot-thousands group keeps the page Indonesian even if a stray `9.00` is also there.
 
-Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receipts and 0.01 on decimal ones. On the usable training receipts, the gold labels themselves pass the arithmetic rules on 730 of 771 (94.7%). The rest are annotation quirks. I did not bend the rules to fit them. Training still filters on the checks that existed when the file was built. The later "items must reach the total" rule is used on live answers.
+Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receipts and 0.01 on decimal ones. On the usable training receipts, the gold labels themselves pass the arithmetic rules on 730 of 771 (94.7%). The rest are annotation quirks. I did not bend the rules to fit them. Training still filters on the checks that existed when the file was built. Two later rules are used on live answers only: the items have to reach the total, and a tax larger than the total has to be added in.
 
 ### The big model (teacher)
 
@@ -180,6 +180,12 @@ On the 150 held-out SROIE receipts, scored with the current checks:
 
 The pass counts use different checks, so they are not a direct comparison. The last row is. Of the 150 mixed answers, 67 pass and stay with the student, and all 67 totals are right. The other 83 go to the big model. On those 83 the big model keeps 65 right totals, replaces 1 right total, and fixes 11 wrong ones. Six stay wrong. The router therefore returns 143 right totals out of 150 (95.3%), against 133 for the student alone. Eighty-four of the router answers pass the checks, and none of those 84 have a wrong total. The tally is in `results/mixed/sroie_router.txt`. 148 of the 150 were given the decimal instruction. Two looked Indonesian to the detector and got the rupiah instruction.
 
+### Reading the photos
+
+The same 150 held-out receipts, read from the page images with Tesseract 5.5.0 (`--psm 6`) instead of the dataset's text boxes. The mixed Q5 student got 98 of 150 totals right (65.3%), against 133 of 150 (88.7%) on the clean text. One total was off by a factor of 100. On this laptop the median time was 8.8 seconds and the longest was 56.3.
+
+The checks kept 41 answers and rejected 109. Of the 41, one total is wrong: receipt 507, gold 6.00, prediction 6.06. Tesseract wrote `0.348`, the locale detector treated the page as rupiah, and the one-rupiah tolerance covered the six cents. A tax larger than the total no longer passes as already included. Before that rule, two more wrong OCR totals passed: a 1.20 tax read as 120, and a 0.28 tax read as 28. The tally is in `results/mixed/sroie_ocr.txt`. 134 of the 150 OCR pages got the decimal instruction. 16 looked Indonesian. The clean-text 0 of 67 was scored before the tax rule.
+
 ### Noticing it without labels
 
 Two signals that need no gold labels, each compared with the first half of the CORD test receipts over a rolling window of 20:
@@ -198,7 +204,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 ## Limits
 
 - The test set is small. 94 receipts means a few points of noise, and every comparison above says so in its interval.
-- The input is clean annotation text, not OCR output. I did not measure the gap.
+- CORD is still clean annotation text. OCR is measured only on the 150 held-out SROIE photos, with Tesseract 5.5.0.
 - I wrote the second teacher prompt after reading test-split errors. I checked it on validation, but the test numbers for the big model are a little optimistic.
 - The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
 - The drift test is one dataset, one student, 150 receipts, and scores only the total.
@@ -210,7 +216,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 
 - Re-run `scripts/drift_report.py` once the new predictions are in `data/`, and keep that output next to the table.
 - Rerun the feedback loop on decimal receipts. On CORD, choosing escalated receipts did not beat choosing at random.
-- Run a real OCR engine on the receipt photos and measure what it costs in accuracy.
+- Send the OCR pages that fail the checks to the big model, the same way the clean-text router did.
 - Get more test receipts so the intervals shrink.
 
 ## Running it

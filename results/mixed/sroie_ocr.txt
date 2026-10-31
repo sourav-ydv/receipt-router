@@ -1,0 +1,13 @@
+held-out receipts: 150
+engine: Tesseract 5.5.0, --psm 6
+total correct: 98 (65.3%)
+off by 100: 1 (0.7%)
+passed the checks: 41
+passed but total wrong: 1 of 41
+correct and accepted: 40
+correct but rejected: 58
+wrong and rejected: 51
+accepted but wrong ids: 507
+locales: decimal 134, idr 16
+seconds: median 8.8, max 56.3
+clean-text student, previous checks: 133/150 (88.7%), 67 accepted, 0 accepted but wrong

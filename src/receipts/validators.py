@@ -45,13 +45,21 @@ def item_targets(receipt):
     return [t for t in targets if t is not None]
 
 
+
+def total_options(base, tax, total, limit):
+    options = [base + tax]
+    if tax <= total + limit:
+        options.append(base)
+    return options
+
+
 def total_matches(receipt, locale="idr"):
     if receipt.subtotal is None or receipt.total is None:
         return True
     base = receipt.subtotal - (receipt.discount or 0.0) + (receipt.service or 0.0)
-    options = (base + (receipt.tax or 0.0), base)
+    tax = receipt.tax or 0.0
     limit = tolerance(receipt, locale)
-    return any(abs(o - receipt.total) <= limit for o in options)
+    return any(abs(option - receipt.total) <= limit for option in total_options(base, tax, receipt.total, limit))
 
 
 def items_explain_total(receipt, locale="idr"):
@@ -65,8 +73,7 @@ def items_explain_total(receipt, locale="idr"):
             nets.append(weighted)
     for net in nets:
         base = net - (receipt.discount or 0.0) + (receipt.service or 0.0)
-        options = (base, base + receipt.tax)
-        if any(abs(option - receipt.total) <= limit for option in options):
+        if any(abs(option - receipt.total) <= limit for option in total_options(base, receipt.tax, receipt.total, limit)):
             return True
     return False
 
