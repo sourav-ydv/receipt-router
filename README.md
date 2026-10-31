@@ -186,6 +186,8 @@ The same 150 held-out receipts, read from the page images with Tesseract 5.5.0 (
 
 The checks kept 41 answers and rejected 109. Of the 41, one total is wrong: receipt 507, gold 6.00, prediction 6.06. Tesseract wrote `0.348`, the locale detector treated the page as rupiah, and the one-rupiah tolerance covered the six cents. A tax larger than the total no longer passes as already included. Before that rule, two more wrong OCR totals passed: a 1.20 tax read as 120, and a 0.28 tax read as 28. The tally is in `results/mixed/sroie_ocr.txt`. 134 of the 150 OCR pages got the decimal instruction. 16 looked Indonesian. The clean-text 0 of 67 was scored before the tax rule.
 
+The 109 rejected pages went to the big model. The router returns 111 of 150 totals right (74.0%), against 98 for the student alone. Of those 109, the big model keeps 55 right totals, replaces 3 right totals, and fixes 16 wrong ones. Thirty-five stay wrong. Three teacher replies do not parse, so the student answer stands. None of the router totals are off by a factor of 100. Forty-eight router answers pass the checks. Two of those totals differ from the dataset: receipt 507, above, and receipt 173, where the dataset total is 60.60 and the page says Grand Total 33.00 after a 27.60 coupon. Cash 50.00 with 17.00 change agrees with 33.00, so the check is following the page. The tally is in `results/mixed/sroie_ocr_router.txt`.
+
 ### Noticing it without labels
 
 Two signals that need no gold labels, each compared with the first half of the CORD test receipts over a rolling window of 20:
@@ -204,7 +206,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 ## Limits
 
 - The test set is small. 94 receipts means a few points of noise, and every comparison above says so in its interval.
-- CORD is still clean annotation text. OCR is measured only on the 150 held-out SROIE photos, with Tesseract 5.5.0.
+- CORD is still clean annotation text. OCR is measured only on the 150 held-out SROIE photos, with Tesseract 5.5.0, for both the student and the router.
 - I wrote the second teacher prompt after reading test-split errors. I checked it on validation, but the test numbers for the big model are a little optimistic.
 - The feedback experiment has two seeds with the full evaluation and one more with a smaller one.
 - The drift test is one dataset, one student, 150 receipts, and scores only the total.
@@ -216,7 +218,7 @@ Caveats: 150 receipts, only the total is scored, and SROIE differs from CORD in 
 
 - Re-run `scripts/drift_report.py` once the new predictions are in `data/`, and keep that output next to the table.
 - Rerun the feedback loop on decimal receipts. On CORD, choosing escalated receipts did not beat choosing at random.
-- Send the OCR pages that fail the checks to the big model, the same way the clean-text router did.
+- Receipt 507 is a Malaysian page read as Indonesian because Tesseract wrote 0.348. A tighter locale rule still has to keep a real rupiah amount such as 50.000.
 - Get more test receipts so the intervals shrink.
 
 ## Running it

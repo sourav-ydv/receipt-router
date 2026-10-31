@@ -1,0 +1,15 @@
+held-out receipts: 150
+engine: Tesseract 5.5.0, --psm 6
+student total correct: 98 (65.3%)
+router total correct: 111 (74.0%)
+escalated: 109
+student was right and teacher kept it: 55
+student was right and teacher replaced it: 3
+student was wrong and teacher fixed it: 16
+student was wrong and teacher still wrong: 35
+teacher unparseable, student kept: 3
+router answers that pass the checks: 48
+router passed but total wrong: 2
+router off by 100: 0
+passed but wrong: 507 student 6.06 vs 6.00; 173 teacher 33.00 vs dataset 60.60, page grand total 33.00
+clean-text router: 143/150 (95.3%)

@@ -6,7 +6,7 @@ from .config import GROQ_API_KEY, GROQ_MODEL, TEACHER_REASONING
 from .drift import detect_locale
 from .validators import check, parse_receipt
 
-MAX_WAIT = 90
+MAX_WAIT = 20 * 60
 
 NUMBER_RULE_IDR = (
     "Numbers are plain numbers with no currency symbol and no thousands separator. "
@@ -147,6 +147,7 @@ def call_teacher(client, text):
             wait = retry_after(error)
             if wait > MAX_WAIT:
                 raise DailyLimit(wait) from error
+            print(f"rate limit, waiting {wait / 60:.0f} minutes", flush=True)
             time.sleep(wait + 1)
         except APIConnectionError:
             time.sleep(2**attempt)
