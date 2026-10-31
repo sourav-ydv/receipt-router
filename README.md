@@ -22,7 +22,7 @@ The mixed student is the file the server downloads. The current checks pass 78 o
 2. Sending hard receipts back to the big model and training on them did not beat training on random receipts. That experiment is in the feedback loop section.
 3. On Malaysian receipts, where prices look like `9.00`, the rupiah-only student got 12.7% of totals right and the arithmetic checks accepted 59 of 65 wrong answers. A second student, trained on both kinds of receipt, got 88.7% of those totals right. With the current checks, 0 of the 67 answers it passed had the wrong total.
 
-The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed CORD rescore and the Malaysian tally are in `results/mixed/`. The Malaysian receipt text is not redistributed here.
+The numbers come from the files in `results/` and from the scripts in `scripts/`. The mixed CORD rescore and the Malaysian student and router tallies are in `results/mixed/`. The Malaysian receipt text is not redistributed here.
 
 ## How it works
 
@@ -55,7 +55,7 @@ Rounding tolerance is 0.05% of the total, with a floor of 1 on Indonesian receip
 
 I wrote the second prompt after reading the first one's errors on the test split, so the test score is a little optimistic. I also ran it on the validation split, which I had not looked at: 66.7% exact, and about 82% of answers passed the checks.
 
-There is a separate prompt for decimal amounts. It says `9.00` means 9 and `1,234.50` means 1234.50, and its worked example is a small decimal receipt. I used it to label the decimal training receipts. I have not scored the teacher itself on the 150 held-out SROIE receipts.
+There is a separate prompt for decimal amounts. It says `9.00` means 9 and `1,234.50` means 1234.50, and its worked example is a small decimal receipt. I used it to label the decimal training receipts and the 83 held-out SROIE receipts the mixed student did not pass.
 
 ### The small model (student)
 
@@ -178,7 +178,7 @@ On the 150 held-out SROIE receipts, scored with the current checks:
 | Passed the checks | 65, arithmetic only | 67, current checks |
 | Passed but total wrong | 59 of 65 | 0 of 67 |
 
-The pass counts use different checks, so they are not a direct comparison. The last row is. Of the 150 mixed answers, 67 pass and would stay with the student, and all 67 totals are right. The other 83 fail and go to the big model. 66 of those 83 have the right total anyway: the items, the tax, or a printed number did not line up, so the checker refused an answer it could not add up. 148 of the 150 were given the decimal instruction. Two looked Indonesian to the detector and got the rupiah instruction.
+The pass counts use different checks, so they are not a direct comparison. The last row is. Of the 150 mixed answers, 67 pass and stay with the student, and all 67 totals are right. The other 83 go to the big model. On those 83 the big model keeps 65 right totals, replaces 1 right total, and fixes 11 wrong ones. Six stay wrong. The router therefore returns 143 right totals out of 150 (95.3%), against 133 for the student alone. Eighty-four of the router answers pass the checks, and none of those 84 have a wrong total. The tally is in `results/mixed/sroie_router.txt`. 148 of the 150 were given the decimal instruction. Two looked Indonesian to the detector and got the rupiah instruction.
 
 ### Noticing it without labels
 

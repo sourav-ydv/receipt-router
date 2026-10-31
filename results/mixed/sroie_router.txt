@@ -1,0 +1,10 @@
+held-out receipts: 150
+student total correct: 133 (88.7%)
+router total correct: 143 (95.3%)
+escalated: 83
+student was right and teacher kept it: 65
+student was right and teacher replaced it: 1
+student was wrong and teacher fixed it: 11
+student was wrong and teacher still wrong: 6
+router answers that pass the checks: 84
+router passed but total wrong: 0
